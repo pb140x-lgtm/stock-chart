@@ -335,14 +335,14 @@
     const vlCanvas = document.createElement("canvas");
     vlCanvas.style.cssText = "position:absolute;top:0;left:0;pointer-events:none;z-index:5";
     chartDomEl.appendChild(vlCanvas);
-    let tradeSignals = []; // [{ type:"long"|"short", entryTime, exitTime }]
+    let superiorPeriods = []; // [{ type:"buy"|"sell", startTime, endTime|null }]
 
     function drawVerticalLines() {
       const w = chartDomEl.clientWidth, h = chartDomEl.clientHeight;
       vlCanvas.width = w; vlCanvas.height = h;
       const ctx = vlCanvas.getContext("2d");
       ctx.clearRect(0, 0, w, h);
-      if (!tradeSignals.length) return;
+      if (!superiorPeriods.length) return;
       const drawLine = (time, color) => {
         const x = chart.timeScale().timeToCoordinate(time);
         if (x == null) return;
@@ -350,15 +350,14 @@
         ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
       };
-      tradeSignals.forEach(t => {
-        if (t.type === "long") {
-          drawLine(t.entryTime, "#4caf50");                       // grün  = Einstieg Long
-          if (t.exitTime) drawLine(t.exitTime, "#ffc107");        // gelb  = Ausstieg Long
-        } else {
-          drawLine(t.entryTime, "#ef5350");                       // rot   = Einstieg Short
-          if (t.exitTime) drawLine(t.exitTime, "#2196f3");        // blau  = Ausstieg Short
-        }
+      // Start jeder Periode: grün (Kauf) oder rot (Verkauf)
+      // Perioden sind zusammenhängend → kein schwarzer Strich am inneren Übergang
+      superiorPeriods.forEach(p => {
+        drawLine(p.startTime, p.type === "buy" ? "#4caf50" : "#ef5350");
       });
+      // Schwarzer Abschluss-Strich nur am Ende der letzten Periode
+      const last = superiorPeriods.at(-1);
+      if (last.endTime) drawLine(last.endTime, "#212121");
     }
 
     // ---- Zeitachsen-Sync (bidirektional, ohne Loop) ----
@@ -593,94 +592,52 @@
     }
 
     // Prüft ob der Kurs innerhalb von 4 Werktagen nach fromTime um ≥4% gestiegen ("up") oder gefallen ("down") ist.
-    // Nutzt High/Low der Folgekerzen für intraday-Reichweite.
-    function priceMovedBy4Pct(candles, fromTime, direction) {
-      const idx = candles.findIndex(c => c.time === fromTime);
-      if (idx < 0) return false;
-      const base = candles[idx].close;
-      for (let i = idx + 1; i <= idx + 4 && i < candles.length; i++) {
-        if (direction === "up"   && candles[i].high >= base * 1.04) return true;
-        if (direction === "down" && candles[i].low  <= base * 0.96) return true;
+    // Aktivierungszeitpunkt eines Verkaufssignals unter MACD-Bedingung:
+    // MACD-Hist <= 0 → sofort aktiv; MACD-Hist > 0 → warten auf Kursrückgang (3 Tage) oder MACD-Wende.
+    function getSellActivationTime(candidateSig, macdHistMap, candles) {
+      const hist = macdHistMap.get(candidateSig.time);
+      if (hist == null || hist <= 0) return candidateSig.time;
+      const idx = candles.findIndex(c => c.time === candidateSig.time);
+      if (idx < 0) return candidateSig.time;
+      const refClose = candles[idx].close;
+      for (let i = idx + 1; i < candles.length; i++) {
+        const h = macdHistMap.get(candles[i].time);
+        if (i <= idx + 3 && candles[i].close < refClose) return candles[i].time;
+        if (h != null && h <= 0) return candles[i].time;
       }
-      return false;
+      return candidateSig.time;
     }
 
-    // Berechnet alle Trade-Signale:
-    // 1. Trade: erstes gültiges Kauf- oder Verkaufssignal mit ≥15%-Abstand zum Messpunkt.
-    //    Messpunkt = frühestes Signal in der ununterbrochenen Gegensignal-Reihe vor dem Einstieg.
-    // Folge-Trades: MACD-Bedingung + Kurs-4%-Bedingung (Turtle-Zusatzregeln):
-    //    Long-Ausstieg via Verkauf → nächstes Kauf gilt, wenn MACD > 0 UND Kurs in 4 Tagen nach Verkauf ≥+4%
-    //    Short-Ausstieg via Kauf   → nächstes Verkauf gilt, wenn MACD < 0 UND Kurs in 4 Tagen nach Kauf ≥−4%
-    // macdHistMap: Map<time, histValue> aus computeMACD().hist
-    function computeAllTradeSignals(allSigs, macdHistMap, displayTimes, candles) {
-      if (!allSigs.length) return [];
+    // Berechnet übergeordnete Perioden (Kauf/Verkauf) als zusammenhängende Kette.
+    // Kaufsignal: erstes Kaufsignal mit ≥15% Abstand zum Referenz-Verkaufssignal (dem ersten Verkaufssignal
+    //   der vorangegangenen Phase); zwischenliegende Verkaufssignale zählen nicht.
+    // Verkaufssignal: erstes Verkaufssignal mit ≥15% Abstand zum Referenz-Kaufsignal + MACD-Bedingung.
+    // Prozess beginnt am Anfang der 24-Monats-Daten, kein Reset durch Jahreszyklus.
+    function computeSuperiorSignals(allSigs, macdHistMap, candles) {
+      const periods = [];
+      if (allSigs.length < 2) return periods;
 
-      // 1. Trade: frühesten gültigen Long- oder Short-Einstieg suchen
-      const findFirst = entryType => {
-        const exitType = entryType === "buy" ? "sell" : "buy";
-        for (let i = 0; i < allSigs.length; i++) {
-          const sig = allSigs[i];
-          if (sig.type !== entryType || !displayTimes.has(sig.time)) continue;
-          let measureIdx = -1;
-          for (let j = i - 1; j >= 0; j--) {
-            if (allSigs[j].type === entryType) break;
-            measureIdx = j;
-          }
-          if (measureIdx < 0) continue;
-          const dist = Math.abs((sig.price - allSigs[measureIdx].price) / allSigs[measureIdx].price * 100);
-          if (dist < 15) continue;
-          let exitIdx = -1;
-          for (let j = i + 1; j < allSigs.length; j++) {
-            if (allSigs[j].type === exitType) { exitIdx = j; break; }
-          }
-          return { type: entryType === "buy" ? "long" : "short",
-                   entryTime: sig.time,
-                   exitTime:  exitIdx >= 0 ? allSigs[exitIdx].time : null,
-                   exitIdx };
-        }
-        return null;
-      };
+      let refSig    = allSigs[0];
+      let searchFor = refSig.type === "sell" ? "buy" : "sell";
 
-      const lng = findFirst("buy"), sht = findFirst("sell");
-      let first = (!lng && !sht) ? null
-                : (!lng) ? sht : (!sht) ? lng
-                : (lng.entryTime <= sht.entryTime ? lng : sht);
-      if (!first) return [];
+      for (let i = 1; i < allSigs.length; i++) {
+        const sig = allSigs[i];
+        if (sig.type !== searchFor) continue;
 
-      const trades = [first];
-      let curExitIdx = first.exitIdx;
+        const dist = Math.abs((sig.price - refSig.price) / refSig.price);
+        if (dist < 0.15) continue;
 
-      // Folge-Trades: MACD-Bedingung + 4%-Kursbewegung in 4 Werktagen nach dem Ausstiegssignal
-      while (curExitIdx >= 0 && curExitIdx < allSigs.length - 1) {
-        const nextIdx  = curExitIdx + 1;
-        const nextSig  = allSigs[nextIdx];
-        if (!displayTimes.has(nextSig.time)) break;
+        let startTime = sig.time;
+        if (searchFor === "sell") startTime = getSellActivationTime(sig, macdHistMap, candles);
 
-        const prevType  = trades[trades.length - 1].type;
-        const exitSig   = allSigs[curExitIdx];
-        const hist      = macdHistMap.get(nextSig.time);
-        const moveDir   = prevType === "long" ? "up" : "down";
-        const priceOk   = priceMovedBy4Pct(candles, exitSig.time, moveDir);
-        const ok = priceOk && (
-            prevType === "long"  && nextSig.type === "buy"  && hist != null && hist > 0  // MACD steigt
-         || prevType === "short" && nextSig.type === "sell" && hist != null && hist < 0  // MACD fällt
-        );
-        if (!ok) break;
+        if (periods.length > 0) periods.at(-1).endTime = startTime;
+        periods.push({ type: searchFor, startTime, endTime: null });
 
-        const exitType = nextSig.type === "buy" ? "sell" : "buy";
-        let newExitIdx = -1;
-        for (let j = nextIdx + 1; j < allSigs.length; j++) {
-          if (allSigs[j].type === exitType) { newExitIdx = j; break; }
-        }
-        trades.push({ type: nextSig.type === "buy" ? "long" : "short",
-                      entryTime: nextSig.time,
-                      exitTime:  newExitIdx >= 0 ? allSigs[newExitIdx].time : null,
-                      exitIdx:   newExitIdx });
-        curExitIdx = newExitIdx;
-        if (newExitIdx < 0) break;
+        refSig    = sig;
+        searchFor = searchFor === "buy" ? "sell" : "buy";
       }
 
-      return trades;
+      return periods;
     }
 
     function fmtDate(ts) { return new Date(ts * 1000).toISOString().slice(0, 10); }
@@ -803,13 +760,13 @@
       }
       refreshMarkers();
 
-      // Trade-Signale (1. Signal: 15%-Bedingung; Folge-Signale: MACD-Bedingung)
-      tradeSignals = [];
+      // Übergeordnete Kauf-/Verkaufssignale (15%-Schwelle + MACD-Bedingung für Verkauf)
+      superiorPeriods = [];
       if (indicatorCandles.length > 35) {
-        const allSigs = computeAllTurtleSignals(indicatorCandles, 20);
-        const { hist }  = computeMACD(indicatorCandles);
+        const allSigs     = computeAllTurtleSignals(indicatorCandles, 20);
+        const { hist }    = computeMACD(indicatorCandles);
         const macdHistMap = new Map(hist.map(h => [h.time, h.value]));
-        tradeSignals = computeAllTradeSignals(allSigs, macdHistMap, displayTimes, indicatorCandles);
+        superiorPeriods   = computeSuperiorSignals(allSigs, macdHistMap, indicatorCandles);
       }
       requestAnimationFrame(drawVerticalLines);
 
