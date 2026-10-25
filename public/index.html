@@ -203,10 +203,10 @@
     <div id="screener-filters">
       <label>Index <select id="f-index"><option value="">Alle Indizes</option></select></label>
       <label>Signal max.&nbsp;<input type="number" id="f-age" min="1" max="365" value="60">&nbsp;Tage alt</label>
-      <label>SMA 10 <select id="f-sma">
+      <label>SMA 20 <select id="f-sma">
         <option value="">alle</option>
-        <option value="above">Kurs über SMA 10</option>
-        <option value="below">Kurs unter SMA 10</option>
+        <option value="above">Kurs über SMA 20</option>
+        <option value="below">Kurs unter SMA 20</option>
       </select></label>
       <span id="filter-count"></span>
     </div>
@@ -214,7 +214,7 @@
     <table class="screen-tbl" id="screener-tbl" style="display:none">
       <thead><tr>
         <th></th><th>Symbol</th><th>Name</th><th>Index</th>
-        <th>Signal</th><th>Kurs</th><th>Ausbruch</th><th>SMA 10</th>
+        <th>Signal</th><th>Kurs</th><th>Ausbruch</th><th>SMA 20</th>
       </tr></thead>
       <tbody id="screener-tbody"></tbody>
     </table>
@@ -1337,7 +1337,7 @@
       const filtered = applyScreenerFilters(lastScreenerResults);
       if (!filtered.length) return;
       const sep = ";";
-      const header = ["Symbol","Name","Index","Signal-Datum","Tage","Kurs","Ausbruchskurs","SMA 10","SMA-Lage"].join(sep);
+      const header = ["Symbol","Name","Index","Signal-Datum","Tage","Kurs","Ausbruchskurs","SMA 20","SMA-Lage"].join(sep);
       const now = Date.now();
       const rows = filtered.map(r => {
         const days = Math.round((now - new Date(r.signal_date + "T12:00:00").getTime()) / 86400000);

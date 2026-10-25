@@ -59,7 +59,7 @@ function hasData(db, symbol) {
 
 // Prüft ob das letzte Turtle-Signal für dieses Symbol ein Kauf ist.
 // Identische Logik zum Chart: computeAllTurtleSignals aus signals.js.
-// Gibt Signal-Datum, Ausbruchskurs und aktuellen SMA 10 zurück, oder null.
+// Gibt Signal-Datum, Ausbruchskurs und aktuellen SMA 20 zurück, oder null.
 function checkCurrentSignal(db, symbol) {
   const rows = db.prepare(
     "SELECT date, high, low, close FROM ohlcv WHERE symbol = ? ORDER BY date ASC"
@@ -74,8 +74,8 @@ function checkCurrentSignal(db, symbol) {
   const last = signals[signals.length - 1];
   if (last.type !== "buy") return null;
 
-  const sma10arr = computeSMA(candles, 10);
-  const sma10 = sma10arr.length ? sma10arr[sma10arr.length - 1].value : null;
+  const sma20arr = computeSMA(candles, 20);
+  const sma10 = sma20arr.length ? sma20arr[sma20arr.length - 1].value : null;
 
   return { date: last.time, breakoutPrice: last.breakout, sma10 };
 }
