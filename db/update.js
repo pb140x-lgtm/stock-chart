@@ -146,7 +146,8 @@ function getLatestReport() {
               sr.run_date, o.close AS close_price,
               s.index_name
        FROM screener_results sr
-       LEFT JOIN ohlcv o   ON o.symbol = sr.symbol AND o.date = sr.run_date
+       LEFT JOIN ohlcv o   ON o.symbol = sr.symbol
+                           AND o.date = (SELECT MAX(date) FROM ohlcv WHERE symbol = sr.symbol)
        LEFT JOIN symbols s ON s.symbol = sr.symbol
        WHERE sr.run_date = (SELECT MAX(run_date) FROM screener_results)
        ORDER BY sr.signal_date DESC, sr.symbol ASC`
