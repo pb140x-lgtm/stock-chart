@@ -164,6 +164,7 @@ function getLatestReport() {
                            AND o.date = (SELECT MAX(date) FROM ohlcv WHERE symbol = sr.symbol)
        LEFT JOIN symbols s ON s.symbol = sr.symbol
        WHERE sr.run_date = (SELECT MAX(run_date) FROM screener_results)
+         AND sr.signal_date >= date('now', '-2 days')
        ORDER BY sr.signal_date DESC, sr.symbol ASC`
     ).all();
 
