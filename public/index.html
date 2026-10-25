@@ -6,6 +6,8 @@
   <title>Aktien-Chart (Yahoo Finance + Lightweight Charts)</title>
   <!-- Lightweight Charts von TradingView (Open Source), feste Version v4 -->
   <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
+  <!-- Gemeinsame Turtle-Signal-Logik (auch von server.js genutzt) -->
+  <script src="/signals.js"></script>
   <style>
     :root { color-scheme: dark; }
     * { box-sizing: border-box; }
@@ -463,50 +465,8 @@
     }
     new ResizeObserver(resizeAll).observe(document.getElementById("chart-col"));
 
-    // ---- Indikator-Berechnungen ----
-    function computeSMA(candles, period) {
-      const out = [];
-      for (let i = period - 1; i < candles.length; i++) {
-        let sum = 0;
-        for (let j = 0; j < period; j++) sum += candles[i - j].close;
-        out.push({ time: candles[i].time, value: sum / period });
-      }
-      return out;
-    }
-
-    function computeDonchian(candles, period) {
-      const highs = [], lows = [];
-      for (let i = period - 1; i < candles.length; i++) {
-        let hh = -Infinity, ll = Infinity;
-        for (let j = 0; j < period; j++) {
-          hh = Math.max(hh, candles[i - j].high);
-          ll = Math.min(ll, candles[i - j].low);
-        }
-        highs.push({ time: candles[i].time, value: hh });
-        lows.push({ time: candles[i].time, value: ll });
-      }
-      return { highs, lows };
-    }
-
-    function computeTurtleSignals(candles, period = 20) {
-      const signals = [];
-      let lastSignal = null; // "buy" | "sell"
-      for (let i = period; i < candles.length; i++) {
-        let prevHigh = -Infinity, prevLow = Infinity;
-        for (let j = i - period; j < i; j++) {
-          prevHigh = Math.max(prevHigh, candles[j].high);
-          prevLow  = Math.min(prevLow,  candles[j].low);
-        }
-        if (candles[i].high > prevHigh && lastSignal !== "buy") {
-          signals.push({ time: candles[i].time, position: "belowBar", color: "#000000", shape: "arrowUp",   size: 2, text: "" });
-          lastSignal = "buy";
-        } else if (candles[i].low < prevLow && lastSignal !== "sell") {
-          signals.push({ time: candles[i].time, position: "aboveBar", color: "#000000", shape: "arrowDown", size: 2, text: "" });
-          lastSignal = "sell";
-        }
-      }
-      return signals;
-    }
+    // ---- Indikator-Berechnungen ---- (computeSMA, computeDonchian, computeTurtleSignals,
+    // computeAllTurtleSignals kommen aus /signals.js)
 
     function computeSMA10Crossings(candles) {
       const crossings = [];
@@ -676,33 +636,6 @@
       }
 
       return trades;
-    }
-
-    // Liefert alle Turtle-Signale.
-    // visualPrice = Kerzen-Low (Kauf) / Kerzen-High (Verkauf) — wo der Pfeil im Chart sichtbar ist.
-    // breakout    = prevHigh / prevLow — der Kanal-Ausbruchspreis (für Trade-P&L).
-    function computeAllTurtleSignals(candles, period = 20) {
-      const signals = [];
-      let lastSignal = null;
-      for (let i = period; i < candles.length; i++) {
-        let prevHigh = -Infinity, prevLow = Infinity;
-        for (let j = i - period; j < i; j++) {
-          prevHigh = Math.max(prevHigh, candles[j].high);
-          prevLow  = Math.min(prevLow,  candles[j].low);
-        }
-        if (candles[i].high > prevHigh && lastSignal !== "buy") {
-          signals.push({ time: candles[i].time, type: "buy",
-            price: candles[i].low,   // Pfeil-Position belowBar
-            breakout: prevHigh, close: candles[i].close });
-          lastSignal = "buy";
-        } else if (candles[i].low < prevLow && lastSignal !== "sell") {
-          signals.push({ time: candles[i].time, type: "sell",
-            price: candles[i].high,  // Pfeil-Position aboveBar
-            breakout: prevLow, close: candles[i].close });
-          lastSignal = "sell";
-        }
-      }
-      return signals;
     }
 
     function fmtDate(ts) { return new Date(ts * 1000).toISOString().slice(0, 10); }
