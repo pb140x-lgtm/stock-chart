@@ -1324,8 +1324,19 @@
           `<td>${r.lowest_low != null ? r.lowest_low.toFixed(2) : "–"}</td>` +
           `<td class="${r.gap_pct >= 25 ? "sma-up" : ""}">${r.gap_pct != null ? r.gap_pct.toFixed(1) + "%" : "–"}</td>` +
           `<td>${smaStr}</td>` +
-          `<td><button class="cand-btn${candidateSymbols.has(r.symbol) ? " saved" : ""}" data-symbol="${r.symbol}">` +
+          `<td style="display:flex;gap:5px">` +
+          `<button class="watch-open" data-symbol="${r.symbol}" title="Im Chart öffnen">📈</button>` +
+          `<button class="cand-btn${candidateSymbols.has(r.symbol) ? " saved" : ""}" data-symbol="${r.symbol}" title="Zu Kandidaten">` +
           `${candidateSymbols.has(r.symbol) ? "✓" : "+"}</button></td>`;
+
+        tr.querySelector(".watch-open").addEventListener("click", e => {
+          e.stopPropagation();
+          document.getElementById("turtleToggle").checked = true;
+          document.getElementById("rsiToggle").checked = false;
+          document.getElementById("symbol").value = r.symbol;
+          document.querySelector('[data-tab="chart"]').click();
+          document.getElementById("load").click();
+        });
 
         const candBtn = tr.querySelector(".cand-btn");
         candBtn.addEventListener("click", async e => {
@@ -1354,7 +1365,7 @@
         });
 
         tr.addEventListener("click", e => {
-          if (e.target.closest(".star-btn") || e.target.closest(".cand-btn")) return;
+          if (e.target.closest(".star-btn") || e.target.closest(".cand-btn") || e.target.closest(".watch-open")) return;
           document.getElementById("turtleToggle").checked = true;
           document.getElementById("rsiToggle").checked = false;
           document.getElementById("symbol").value = r.symbol;
