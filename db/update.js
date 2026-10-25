@@ -77,16 +77,20 @@ function checkCurrentSignal(db, symbol) {
   const sma20arr = computeSMA(candles, 20);
   const sma10 = sma20arr.length ? sma20arr[sma20arr.length - 1].value : null;
 
-  // Tiefstes Tief zwischen letztem Gegensignal und aktuellem Kaufsignal
+  // Aktuelles Donchian-Hoch (max. High der letzten 20 Kerzen vor der neuesten)
+  // — entspricht der alten SQL-Logik: date < today, LIMIT 20
+  const donchianHigh = Math.max(...candles.slice(-(PERIOD + 1), -1).map(c => c.high));
+
+  // Tiefstes Tief seit dem letzten Verkaufssignal bis heute (Option A)
   const prevSig  = signals.length >= 2 ? signals[signals.length - 2] : null;
   const fromTime = prevSig ? prevSig.time : candles[0].time;
-  const between  = candles.filter(c => c.time > fromTime && c.time < last.time);
-  const lowestLow = between.length
-    ? Math.min(...between.map(c => c.low))
+  const since    = candles.filter(c => c.time > fromTime);
+  const lowestLow = since.length
+    ? Math.min(...since.map(c => c.low))
     : candles[candles.length - 1].low;
-  const gapPct = (last.breakout - lowestLow) / last.breakout * 100;
+  const gapPct = (donchianHigh - lowestLow) / donchianHigh * 100;
 
-  return { date: last.time, breakoutPrice: last.breakout, sma10, lowestLow, gapPct };
+  return { date: last.time, breakoutPrice: donchianHigh, sma10, lowestLow, gapPct };
 }
 
 async function runUpdate(onProgress) {
