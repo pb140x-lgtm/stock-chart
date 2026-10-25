@@ -1,7 +1,3 @@
-// Tägliches Update: lädt OHLCV von Yahoo Finance, ermittelt aktive Turtle-Kaufsignale.
-// Logik: identisch mit dem Chart — computeAllTurtleSignals aus signals.js.
-// Eine Aktie erscheint, solange ihr letztes Signal ein Kauf ist (kein Folge-Kauf, kein Verkauf).
-
 const { openDb } = require("./schema");
 const { computeAllTurtleSignals, computeSMA } = require("../public/signals.js");
 const path = require("path");
@@ -57,9 +53,6 @@ function hasData(db, symbol) {
   return db.prepare("SELECT 1 FROM ohlcv WHERE symbol = ? LIMIT 1").get(symbol) != null;
 }
 
-// Prüft ob das letzte Turtle-Signal für dieses Symbol ein Kauf ist.
-// Identische Logik zum Chart: computeAllTurtleSignals aus signals.js.
-// Gibt Signal-Datum, Ausbruchskurs und aktuellen SMA 20 zurück, oder null.
 function checkCurrentSignal(db, symbol) {
   const rows = db.prepare(
     "SELECT date, high, low, close FROM ohlcv WHERE symbol = ? ORDER BY date ASC"
@@ -74,14 +67,12 @@ function checkCurrentSignal(db, symbol) {
   const last = signals[signals.length - 1];
   if (last.type !== "buy") return null;
 
-  const sma20arr = computeSMA(candles, 20);
-  const sma10 = sma20arr.length ? sma20arr[sma20arr.length - 1].value : null;
+  const sma20 = computeSMA(candles, 20).at(-1)?.value ?? null;
 
-  // Aktuelles Donchian-Hoch (max. High der letzten 20 Kerzen vor der neuesten)
-  // — entspricht der alten SQL-Logik: date < today, LIMIT 20
+  // Aktuelles Donchian-Hoch: max. High der letzten 20 Kerzen vor der neuesten
   const donchianHigh = Math.max(...candles.slice(-(PERIOD + 1), -1).map(c => c.high));
 
-  // Tiefstes Tief seit dem letzten Verkaufssignal bis heute (Option A)
+  // Tiefstes Tief seit dem letzten Verkaufssignal
   const prevSig  = signals.length >= 2 ? signals[signals.length - 2] : null;
   const fromTime = prevSig ? prevSig.time : candles[0].time;
   const since    = candles.filter(c => c.time > fromTime);
@@ -90,7 +81,7 @@ function checkCurrentSignal(db, symbol) {
     : candles[candles.length - 1].low;
   const gapPct = (donchianHigh - lowestLow) / donchianHigh * 100;
 
-  return { date: last.time, breakoutPrice: donchianHigh, sma10, lowestLow, gapPct };
+  return { date: last.time, breakoutPrice: donchianHigh, sma20, lowestLow, gapPct };
 }
 
 async function runUpdate(onProgress) {
@@ -121,16 +112,14 @@ async function runUpdate(onProgress) {
       }
 
       if (onProgress) onProgress(i + 1, total, signalsFound);
-      // 5 gleichzeitig, dann 1s Pause (Yahoo Rate-Limiting)
       if ((i + 1) % 5 === 0) await sleep(1000);
     }
 
-    // Ergebnisse in DB schreiben
     db.exec(`DELETE FROM screener_results WHERE run_date = '${today}'`);
     const ins = db.prepare(
-      "INSERT INTO screener_results (run_date, symbol, name, signal_date, breakout_price, lowest_low, gap_pct, sma10) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO screener_results (run_date, symbol, name, signal_date, breakout_price, lowest_low, gap_pct, sma20) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     );
-    for (const r of results) ins.run(today, r.symbol, r.name, r.date, r.breakoutPrice, r.lowestLow ?? null, r.gapPct ?? null, r.sma10 ?? null);
+    for (const r of results) ins.run(today, r.symbol, r.name, r.date, r.breakoutPrice, r.lowestLow ?? null, r.gapPct ?? null, r.sma20 ?? null);
 
     const duration = Date.now() - t0;
     db.prepare(
@@ -147,16 +136,15 @@ async function runUpdate(onProgress) {
   }
 }
 
-// Report aus DB lesen — zeigt Signale der letzten 5 Kalendertage (pro Symbol nur den neuesten)
 function getLatestReport() {
   const db = openDb();
   try {
     const logRow = db.prepare("SELECT * FROM update_log ORDER BY run_at DESC LIMIT 1").get();
     if (!logRow) return { runAt: null, results: [] };
 
-    const allRows = db.prepare(
+    const results = db.prepare(
       `SELECT sr.symbol, sr.name, sr.signal_date, sr.breakout_price,
-              sr.lowest_low, sr.gap_pct, sr.sma10,
+              sr.lowest_low, sr.gap_pct, sr.sma20,
               sr.run_date, o.close AS close_price,
               s.index_name
        FROM screener_results sr
@@ -167,14 +155,6 @@ function getLatestReport() {
          AND sr.signal_date >= date('now', '-2 days')
        ORDER BY sr.signal_date DESC, sr.symbol ASC`
     ).all();
-
-    // Pro Symbol nur den jüngsten Eintrag behalten
-    const seen = new Set();
-    const results = allRows.filter(r => {
-      if (seen.has(r.symbol)) return false;
-      seen.add(r.symbol);
-      return true;
-    });
 
     return {
       runAt: logRow.run_at,

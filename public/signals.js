@@ -1,5 +1,4 @@
-// Gemeinsame Turtle-Signal-Logik.
-// Läuft im Browser (via <script src="/signals.js">) und in Node (via require).
+// Turtle-Signal-Logik. Läuft im Browser (via <script>) und in Node (via require).
 
 function computeSMA(candles, period) {
   const out = [];
@@ -25,8 +24,8 @@ function computeDonchian(candles, period) {
   return { highs, lows };
 }
 
-function computeTurtleSignals(candles, period) {
-  if (period === undefined) period = 20;
+// Marker-Signale für den Chart (▲▼ Pfeile)
+function computeTurtleSignals(candles, period = 20) {
   const signals = [];
   let lastSignal = null;
   for (let i = period; i < candles.length; i++) {
@@ -46,11 +45,10 @@ function computeTurtleSignals(candles, period) {
   return signals;
 }
 
-// Liefert alle Turtle-Signale mit Typ, Ausbruchspreis und Schlusskurs.
+// Vollständige Signalliste mit Typ, Ausbruchspreis und Schlusskurs.
 // buy:  price = Low der Ausbruchskerze, breakout = 20-Tage-Hoch
 // sell: price = High der Ausbruchskerze, breakout = 20-Tage-Tief
-function computeAllTurtleSignals(candles, period) {
-  if (period === undefined) period = 20;
+function computeAllTurtleSignals(candles, period = 20) {
   const signals = [];
   let lastSignal = null;
   for (let i = period; i < candles.length; i++) {
@@ -60,22 +58,10 @@ function computeAllTurtleSignals(candles, period) {
       prevLow  = Math.min(prevLow,  candles[j].low);
     }
     if (candles[i].high > prevHigh && lastSignal !== "buy") {
-      signals.push({
-        time:     candles[i].time,
-        type:     "buy",
-        price:    candles[i].low,
-        breakout: prevHigh,
-        close:    candles[i].close,
-      });
+      signals.push({ time: candles[i].time, type: "buy",  price: candles[i].low,  breakout: prevHigh, close: candles[i].close });
       lastSignal = "buy";
     } else if (candles[i].low < prevLow && lastSignal !== "sell") {
-      signals.push({
-        time:     candles[i].time,
-        type:     "sell",
-        price:    candles[i].high,
-        breakout: prevLow,
-        close:    candles[i].close,
-      });
+      signals.push({ time: candles[i].time, type: "sell", price: candles[i].high, breakout: prevLow,  close: candles[i].close });
       lastSignal = "sell";
     }
   }
