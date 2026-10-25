@@ -45,10 +45,8 @@
     #screener-header h2 { margin: 0; font-size: 15px; font-weight: 600; }
     #screener-meta { font-size: 13px; color: #868993; flex: 1; }
     #screener-meta strong { color: #d1d4dc; }
-    #updateBtn { font-size: 13px; padding: 6px 12px; }
     #exportBtn { font-size: 13px; padding: 6px 12px; }
     #exportBtn:disabled { opacity: 0.35; cursor: default; }
-    #updateBtn.running { background: #ff6d00; border-color: #ff6d00; color: #fff; cursor: default; }
     #screener-empty { color: #868993; font-size: 14px; padding: 32px 0; text-align: center; }
     .screen-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
     .screen-tbl th { color: #868993; font-weight: 500; padding: 7px 10px; text-align: left; border-bottom: 2px solid #2a2e39; white-space: nowrap; }
@@ -214,7 +212,6 @@
       <h2>Turtle Screener</h2>
       <div id="screener-meta">Noch kein Update gelaufen — starte die Erstbefüllung.</div>
       <button id="exportBtn" disabled title="Ergebnisse als CSV herunterladen">📥 Exportieren</button>
-      <button id="updateBtn">Jetzt aktualisieren</button>
     </div>
     <div id="screener-filters">
       <label>Index <select id="f-index"><option value="">Alle Indizes</option></select></label>
@@ -1576,44 +1573,6 @@
       const a = Object.assign(document.createElement("a"), { href: url, download: `kandidaten-${new Date().toISOString().slice(0,10)}.csv` });
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    });
-
-    document.getElementById("updateBtn").addEventListener("click", async () => {
-      const btn = document.getElementById("updateBtn");
-      if (btn.classList.contains("running")) return;
-
-      // Aktuellen Stand merken — damit wir erkennen wann das Update fertig ist
-      const before = await fetch("/api/screen").then(r => r.json()).catch(() => null);
-      const runAtBefore = before?.runAt ?? "";
-
-      btn.classList.add("running");
-      btn.textContent = "Läuft …";
-      try {
-        const res = await fetch("/api/screen/update", { method: "POST" });
-        const d = await res.json();
-        if (d.error && res.status !== 409) {
-          btn.textContent = "Fehler";
-          setTimeout(() => { btn.textContent = "Jetzt aktualisieren"; btn.classList.remove("running"); }, 3000);
-          return;
-        }
-        // 409 = Update läuft bereits — einfach mitmachen und pollen
-        document.getElementById("screener-meta").textContent = "Update läuft — dauert je nach Symbolanzahl 3–5 Minuten …";
-        let polls = 0;
-        const poll = setInterval(async () => {
-          polls++;
-          const r = await fetch("/api/screen").then(x => x.json()).catch(() => null);
-          if (r && r.runAt && r.runAt !== runAtBefore) {
-            clearInterval(poll);
-            btn.textContent = "Jetzt aktualisieren";
-            btn.classList.remove("running");
-            loadScreenerReport();
-          }
-          if (polls > 24) { clearInterval(poll); btn.textContent = "Jetzt aktualisieren"; btn.classList.remove("running"); }
-        }, 15000);
-      } catch (e) {
-        btn.textContent = "Fehler";
-        setTimeout(() => { btn.textContent = "Jetzt aktualisieren"; btn.classList.remove("running"); }, 3000);
-      }
     });
 
     // Watchlist- und Kandidaten-Symbole vorladen, damit Buttons sofort korrekt sind
