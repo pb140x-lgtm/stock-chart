@@ -214,7 +214,7 @@
     <table class="screen-tbl" id="screener-tbl" style="display:none">
       <thead><tr>
         <th></th><th>Symbol</th><th>Name</th><th>Index</th>
-        <th>Signal</th><th>Kurs</th><th>Ausbruch</th><th>SMA 20</th>
+        <th>Signal</th><th>Kurs</th><th>Ausbruch</th><th>Tiefstkurs</th><th>Abstand</th><th>SMA 20</th>
       </tr></thead>
       <tbody id="screener-tbody"></tbody>
     </table>
@@ -1287,6 +1287,8 @@
           `<td>${r.signal_date} <span style="color:#868993;font-size:11px">(${ageStr})</span></td>` +
           `<td>${r.close_price != null ? r.close_price.toFixed(2) : "–"}</td>` +
           `<td>${r.breakout_price != null ? r.breakout_price.toFixed(2) : "–"}</td>` +
+          `<td>${r.lowest_low != null ? r.lowest_low.toFixed(2) : "–"}</td>` +
+          `<td class="${r.gap_pct >= 25 ? "sma-up" : ""}">${r.gap_pct != null ? r.gap_pct.toFixed(1) + "%" : "–"}</td>` +
           `<td>${smaStr}</td>`;
 
         tr.addEventListener("click", e => {
@@ -1337,7 +1339,7 @@
       const filtered = applyScreenerFilters(lastScreenerResults);
       if (!filtered.length) return;
       const sep = ";";
-      const header = ["Symbol","Name","Index","Signal-Datum","Tage","Kurs","Ausbruchskurs","SMA 20","SMA-Lage"].join(sep);
+      const header = ["Symbol","Name","Index","Signal-Datum","Tage","Kurs","Ausbruchskurs","Tiefstkurs","Abstand %","SMA 20","SMA-Lage"].join(sep);
       const now = Date.now();
       const rows = filtered.map(r => {
         const days = Math.round((now - new Date(r.signal_date + "T12:00:00").getTime()) / 86400000);
@@ -1350,6 +1352,8 @@
           days,
           r.close_price != null ? r.close_price.toFixed(2).replace(".",",") : "",
           r.breakout_price != null ? r.breakout_price.toFixed(2).replace(".",",") : "",
+          r.lowest_low != null ? r.lowest_low.toFixed(2).replace(".",",") : "",
+          r.gap_pct != null ? r.gap_pct.toFixed(1).replace(".",",") + "%" : "",
           r.sma10 != null ? r.sma10.toFixed(2).replace(".",",") : "",
           smaLage,
         ].join(sep);

@@ -77,7 +77,16 @@ function checkCurrentSignal(db, symbol) {
   const sma20arr = computeSMA(candles, 20);
   const sma10 = sma20arr.length ? sma20arr[sma20arr.length - 1].value : null;
 
-  return { date: last.time, breakoutPrice: last.breakout, sma10 };
+  // Tiefstes Tief zwischen letztem Gegensignal und aktuellem Kaufsignal
+  const prevSig  = signals.length >= 2 ? signals[signals.length - 2] : null;
+  const fromTime = prevSig ? prevSig.time : candles[0].time;
+  const between  = candles.filter(c => c.time > fromTime && c.time < last.time);
+  const lowestLow = between.length
+    ? Math.min(...between.map(c => c.low))
+    : candles[candles.length - 1].low;
+  const gapPct = (last.breakout - lowestLow) / last.breakout * 100;
+
+  return { date: last.time, breakoutPrice: last.breakout, sma10, lowestLow, gapPct };
 }
 
 async function runUpdate(onProgress) {
@@ -115,9 +124,9 @@ async function runUpdate(onProgress) {
     // Ergebnisse in DB schreiben
     db.exec(`DELETE FROM screener_results WHERE run_date = '${today}'`);
     const ins = db.prepare(
-      "INSERT INTO screener_results (run_date, symbol, name, signal_date, breakout_price, sma10) VALUES (?, ?, ?, ?, ?, ?)"
+      "INSERT INTO screener_results (run_date, symbol, name, signal_date, breakout_price, lowest_low, gap_pct, sma10) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     );
-    for (const r of results) ins.run(today, r.symbol, r.name, r.date, r.breakoutPrice, r.sma10 ?? null);
+    for (const r of results) ins.run(today, r.symbol, r.name, r.date, r.breakoutPrice, r.lowestLow ?? null, r.gapPct ?? null, r.sma10 ?? null);
 
     const duration = Date.now() - t0;
     db.prepare(
@@ -142,7 +151,8 @@ function getLatestReport() {
     if (!logRow) return { runAt: null, results: [] };
 
     const allRows = db.prepare(
-      `SELECT sr.symbol, sr.name, sr.signal_date, sr.breakout_price, sr.sma10,
+      `SELECT sr.symbol, sr.name, sr.signal_date, sr.breakout_price,
+              sr.lowest_low, sr.gap_pct, sr.sma10,
               sr.run_date, o.close AS close_price,
               s.index_name
        FROM screener_results sr
