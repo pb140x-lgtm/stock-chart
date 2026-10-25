@@ -56,7 +56,13 @@
     .screen-tbl tr:last-child td { border-bottom: none; }
     .screen-tbl tbody tr:hover { background: rgba(41,98,255,0.07); cursor: pointer; }
     .screen-tbl .idx-badge { font-size: 11px; background: #2a2e39; border-radius: 4px; padding: 1px 5px; color: #868993; }
-    .gap-high { color: #26a69a; font-weight: 600; }
+    #screener-filters { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 8px 0 10px; border-bottom: 1px solid #2a2e39; font-size: 13px; }
+    #screener-filters label { color: #868993; display: inline-flex; align-items: center; gap: 5px; }
+    #screener-filters select, #screener-filters input[type=number] { background: #2a2e39; color: #d1d4dc; border: 1px solid #363a45; border-radius: 5px; padding: 3px 7px; font-size: 13px; }
+    #screener-filters input[type=number] { width: 55px; }
+    #filter-count { margin-left: auto; color: #868993; font-size: 12px; }
+    .sma-up { color: #26a69a; }
+    .sma-down { color: #ef5350; }
 
     #tab-bar { display: flex; background: #1e222d; border-bottom: 1px solid #2a2e39; padding: 0 16px; flex-shrink: 0; }
     #tab-bar button { background: none; border: none; border-bottom: 3px solid transparent; color: #868993; padding: 9px 16px; font-size: 13.5px; cursor: pointer; border-radius: 0; }
@@ -194,11 +200,21 @@
       <button id="exportBtn" disabled title="Ergebnisse als CSV herunterladen">📥 Exportieren</button>
       <button id="updateBtn">Jetzt aktualisieren</button>
     </div>
+    <div id="screener-filters">
+      <label>Index <select id="f-index"><option value="">Alle Indizes</option></select></label>
+      <label>Signal max.&nbsp;<input type="number" id="f-age" min="1" max="365" value="60">&nbsp;Tage alt</label>
+      <label>SMA 10 <select id="f-sma">
+        <option value="">alle</option>
+        <option value="above">Kurs über SMA 10</option>
+        <option value="below">Kurs unter SMA 10</option>
+      </select></label>
+      <span id="filter-count"></span>
+    </div>
     <div id="screener-empty">Kein Update vorhanden. Klicke auf „Jetzt aktualisieren".</div>
     <table class="screen-tbl" id="screener-tbl" style="display:none">
       <thead><tr>
         <th></th><th>Symbol</th><th>Name</th><th>Index</th>
-        <th>Erkannt</th><th>Kurs</th><th>Ausbruchskurs</th><th>Tiefstkurs</th><th>Abstand</th><th>Stand</th>
+        <th>Signal</th><th>Kurs</th><th>Ausbruch</th><th>SMA 10</th>
       </tr></thead>
       <tbody id="screener-tbody"></tbody>
     </table>
@@ -1200,54 +1216,161 @@
     // ---- Screener ----
     let lastScreenerResults = [];
 
-    function getIndexBadge(symbol) {
-      if (symbol.endsWith(".DE")) return "DAX";
-      if (symbol.endsWith(".PA")) return "CAC40";
-      if (symbol.endsWith(".AS")) return "AEX";
-      if (symbol.endsWith(".SW")) return "SMI";
-      if (symbol.endsWith(".MC")) return "IBEX35";
-      if (symbol.endsWith(".ST")) return "OMX30";
-      if (symbol.endsWith(".L"))  return "FTSE100";
-      return "–";
+    function applyScreenerFilters(results) {
+      const idxFilter = document.getElementById("f-index").value;
+      const ageFilter = parseInt(document.getElementById("f-age").value) || 9999;
+      const smaFilter = document.getElementById("f-sma").value;
+      const now = Date.now();
+      return results.filter(r => {
+        if (idxFilter && r.index_name !== idxFilter) return false;
+        const days = Math.round((now - new Date(r.signal_date + "T12:00:00").getTime()) / 86400000);
+        if (days > ageFilter) return false;
+        if (smaFilter === "above" && !(r.close_price != null && r.sma10 != null && r.close_price > r.sma10)) return false;
+        if (smaFilter === "below" && !(r.close_price != null && r.sma10 != null && r.close_price < r.sma10)) return false;
+        return true;
+      });
+    }
+
+    function saveFilterState() {
+      try {
+        localStorage.setItem("screenerFilters", JSON.stringify({
+          idx: document.getElementById("f-index").value,
+          age: document.getElementById("f-age").value,
+          sma: document.getElementById("f-sma").value,
+        }));
+      } catch {}
+    }
+
+    function restoreFilterState() {
+      try {
+        const s = JSON.parse(localStorage.getItem("screenerFilters") || "{}");
+        if (s.age) document.getElementById("f-age").value = s.age;
+        if (s.sma) document.getElementById("f-sma").value = s.sma;
+        return s;
+      } catch { return {}; }
+    }
+
+    function renderScreenerTable(results) {
+      const emptyEl = document.getElementById("screener-empty");
+      const tblEl   = document.getElementById("screener-tbl");
+      const tbody   = document.getElementById("screener-tbody");
+      document.getElementById("filter-count").textContent = results.length + " Treffer";
+
+      if (!results.length) {
+        emptyEl.textContent = "Keine Einträge für diese Filtereinstellung.";
+        emptyEl.style.display = "";
+        tblEl.style.display   = "none";
+        return;
+      }
+      emptyEl.style.display = "none";
+      tblEl.style.display   = "";
+      tbody.innerHTML = "";
+
+      const now = Date.now();
+      results.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.dataset.symbol = r.symbol;
+        const inWatch  = watchlistSymbols.has(r.symbol);
+        const days     = Math.round((now - new Date(r.signal_date + "T12:00:00").getTime()) / 86400000);
+        const ageStr   = days === 0 ? "heute" : days === 1 ? "gestern" : days + " Tage";
+        const hasSma   = r.close_price != null && r.sma10 != null;
+        const smaUp    = hasSma && r.close_price > r.sma10;
+        const smaStr   = hasSma
+          ? `${r.sma10.toFixed(2)} <span class="${smaUp ? "sma-up" : "sma-down"}">${smaUp ? "↑" : "↓"}</span>`
+          : "–";
+
+        tr.innerHTML =
+          `<td><button class="star-btn${inWatch ? " saved" : ""}" data-symbol="${r.symbol}" data-name="${r.name.replace(/"/g,"&quot;")}" data-date="${r.signal_date}" title="${inWatch ? "Aus Merkliste entfernen" : "Zur Merkliste hinzufügen"}">★</button></td>` +
+          `<td><strong>${r.symbol}</strong></td>` +
+          `<td>${r.name}</td>` +
+          `<td><span class="idx-badge">${r.index_name || "–"}</span></td>` +
+          `<td>${r.signal_date} <span style="color:#868993;font-size:11px">(${ageStr})</span></td>` +
+          `<td>${r.close_price != null ? r.close_price.toFixed(2) : "–"}</td>` +
+          `<td>${r.breakout_price != null ? r.breakout_price.toFixed(2) : "–"}</td>` +
+          `<td>${smaStr}</td>`;
+
+        tr.addEventListener("click", e => {
+          if (e.target.closest(".star-btn")) return;
+          document.getElementById("turtleToggle").checked = true;
+          document.getElementById("rsiToggle").checked = false;
+          document.getElementById("symbol").value = r.symbol;
+          document.querySelector('[data-tab="chart"]').click();
+          document.getElementById("load").click();
+        });
+
+        const starBtn = tr.querySelector(".star-btn");
+        starBtn.addEventListener("click", async e => {
+          e.stopPropagation();
+          const sym = starBtn.dataset.symbol;
+          try {
+            if (starBtn.classList.contains("saved")) {
+              await safeJsonFetch(`/api/watchlist/${encodeURIComponent(sym)}`, { method: "DELETE" });
+              starBtn.classList.remove("saved");
+              starBtn.title = "Zur Merkliste hinzufügen";
+              watchlistSymbols.delete(sym);
+            } else {
+              await safeJsonFetch("/api/watchlist", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ symbol: sym, name: starBtn.dataset.name, signal_date: starBtn.dataset.date }),
+              });
+              starBtn.classList.add("saved");
+              starBtn.title = "Aus Merkliste entfernen";
+              watchlistSymbols.add(sym);
+            }
+          } catch (err) {
+            alert("Merkliste-Fehler: " + err.message);
+          }
+        });
+        tbody.appendChild(tr);
+      });
+    }
+
+    function applyAndRender() {
+      const filtered = applyScreenerFilters(lastScreenerResults);
+      document.getElementById("exportBtn").disabled = filtered.length === 0;
+      renderScreenerTable(filtered);
+      saveFilterState();
     }
 
     function exportScreenerCSV() {
-      if (!lastScreenerResults.length) return;
+      const filtered = applyScreenerFilters(lastScreenerResults);
+      if (!filtered.length) return;
       const sep = ";";
-      const header = ["Symbol", "Name", "Index", "Erkannt", "Kurs", "Ausbruchskurs", "Tiefstkurs", "Abstand %", "Stand"].join(sep);
-      const today  = new Date().toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
-      const rows   = lastScreenerResults.map(r =>
-        [
+      const header = ["Symbol","Name","Index","Signal-Datum","Tage","Kurs","Ausbruchskurs","SMA 10","SMA-Lage"].join(sep);
+      const now = Date.now();
+      const rows = filtered.map(r => {
+        const days = Math.round((now - new Date(r.signal_date + "T12:00:00").getTime()) / 86400000);
+        const smaLage = r.close_price != null && r.sma10 != null ? (r.close_price > r.sma10 ? "über" : "unter") : "";
+        return [
           r.symbol,
           `"${r.name.replace(/"/g, '""')}"`,
-          getIndexBadge(r.symbol),
-          r.run_date,
-          r.close_price != null ? r.close_price.toFixed(2).replace(".", ",") : "",
-          r.breakout_price.toFixed(2).replace(".", ","),
-          r.lowest_low.toFixed(2).replace(".", ","),
-          r.gap_pct.toFixed(1).replace(".", ",") + "%",
-          today,
-        ].join(sep)
-      );
-      const csv  = "﻿" + [header, ...rows].join("\r\n"); // BOM für Excel-UTF-8
+          r.index_name || "",
+          r.signal_date,
+          days,
+          r.close_price != null ? r.close_price.toFixed(2).replace(".",",") : "",
+          r.breakout_price != null ? r.breakout_price.toFixed(2).replace(".",",") : "",
+          r.sma10 != null ? r.sma10.toFixed(2).replace(".",",") : "",
+          smaLage,
+        ].join(sep);
+      });
+      const csv  = "﻿" + [header, ...rows].join("\r\n");
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url  = URL.createObjectURL(blob);
-      const a    = document.createElement("a");
-      a.href     = url;
-      a.download = `turtle-screener-${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      const a    = Object.assign(document.createElement("a"), { href: url, download: `turtle-screener-${new Date().toISOString().slice(0,10)}.csv` });
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(url);
     }
 
     document.getElementById("exportBtn").addEventListener("click", exportScreenerCSV);
+    ["f-index","f-age","f-sma"].forEach(id =>
+      document.getElementById(id).addEventListener("change", applyAndRender)
+    );
 
     async function loadScreenerReport() {
       const metaEl  = document.getElementById("screener-meta");
       const emptyEl = document.getElementById("screener-empty");
       const tblEl   = document.getElementById("screener-tbl");
-      const tbody   = document.getElementById("screener-tbody");
 
       try {
         const res  = await fetch("/api/screen");
@@ -1266,71 +1389,21 @@
         metaEl.innerHTML =
           `Stand: <strong>${runDt}</strong> · ` +
           `<strong>${data.symbolsUpdated ?? "–"}</strong> Symbole · ` +
-          `<strong>${data.signalsFound ?? 0}</strong> Signale${dur}`;
+          `<strong>${data.signalsFound ?? 0}</strong> aktive Kaufsignale${dur}`;
 
-        tbody.innerHTML = "";
         const results = data.results || [];
         lastScreenerResults = results;
-        document.getElementById("exportBtn").disabled = results.length === 0;
-        if (!results.length) {
-          emptyEl.textContent = "Keine Kaufsignale heute.";
-          emptyEl.style.display = "";
-          tblEl.style.display   = "none";
-          return;
-        }
 
-        emptyEl.style.display = "none";
-        tblEl.style.display   = "";
-        results.forEach(r => {
-          const tr = document.createElement("tr");
-          tr.dataset.symbol = r.symbol;
-          const gapClass  = r.gap_pct >= 25 ? "gap-high" : "";
-          const inWatch   = watchlistSymbols.has(r.symbol);
-          tr.innerHTML =
-            `<td><button class="star-btn${inWatch ? " saved" : ""}" data-symbol="${r.symbol}" data-name="${r.name.replace(/"/g,'&quot;')}" data-date="${r.run_date}" title="${inWatch ? "Aus Merkliste entfernen" : "Zur Merkliste hinzufügen"}">★</button></td>` +
-            `<td><strong>${r.symbol}</strong></td>` +
-            `<td>${r.name}</td>` +
-            `<td><span class="idx-badge">${getIndexBadge(r.symbol)}</span></td>` +
-            `<td>${r.run_date} ${(() => { const d = Math.round((Date.now() - new Date(r.run_date + 'T12:00:00').getTime()) / 86400000); return '<span style="color:#868993;font-size:11px">(' + (d === 0 ? 'heute' : d === 1 ? 'gestern' : d + ' Tage') + ')</span>'; })()}</td>` +
-            `<td>${r.close_price != null ? r.close_price.toFixed(2) : '–'}</td>` +
-            `<td>${r.breakout_price.toFixed(2)}</td>` +
-            `<td>${r.lowest_low.toFixed(2)}</td>` +
-            `<td class="${gapClass}">${r.gap_pct.toFixed(1)}%</td>` +
-            `<td style="color:#868993">${new Date().toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })}</td>`;
-          tr.addEventListener("click", e => {
-            if (e.target.closest(".star-btn")) return;
-            document.getElementById("symbol").value = r.symbol;
-            document.querySelector('[data-tab="chart"]').click();
-            document.getElementById("load").click();
-          });
-          const starBtn = tr.querySelector(".star-btn");
-          starBtn.addEventListener("click", async e => {
-            e.stopPropagation();
-            const sym = starBtn.dataset.symbol;
-            try {
-              if (starBtn.classList.contains("saved")) {
-                await safeJsonFetch(`/api/watchlist/${encodeURIComponent(sym)}`, { method: "DELETE" });
-                starBtn.classList.remove("saved");
-                starBtn.title = "Zur Merkliste hinzufügen";
-                watchlistSymbols.delete(sym);
-              } else {
-                await safeJsonFetch("/api/watchlist", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ symbol: sym, name: starBtn.dataset.name, signal_date: starBtn.dataset.date }),
-                });
-                starBtn.classList.add("saved");
-                starBtn.title = "Aus Merkliste entfernen";
-                watchlistSymbols.add(sym);
-              }
-            } catch (err) {
-              alert("Merkliste-Fehler: " + err.message);
-            }
-          });
-          tbody.appendChild(tr);
-        });
+        // Index-Dropdown befüllen, gespeicherte Auswahl wiederherstellen
+        const saved = JSON.parse(localStorage.getItem("screenerFilters") || "{}");
+        const idxSel = document.getElementById("f-index");
+        const indices = [...new Set(results.map(r => r.index_name).filter(Boolean))].sort();
+        idxSel.innerHTML = '<option value="">Alle Indizes</option>' +
+          indices.map(i => `<option value="${i}"${i === saved.idx ? " selected" : ""}>${i}</option>`).join("");
+
+        applyAndRender();
       } catch (e) {
-        metaEl.textContent = "Fehler beim Laden: " + e.message;
+        document.getElementById("screener-meta").textContent = "Fehler beim Laden: " + e.message;
       }
     }
 
@@ -1377,6 +1450,7 @@
       watchlistSymbols = new Set(rows.map(r => r.symbol));
     }).catch(() => {});
 
+    restoreFilterState(); // gespeicherten Filterstand wiederherstellen (Alter, SMA)
     load(); // Erstes Laden: AAPL, 1 Jahr
   </script>
 </body>
