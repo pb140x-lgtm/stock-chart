@@ -63,6 +63,21 @@
     #filter-count { margin-left: auto; color: #868993; font-size: 12px; }
     .sma-up { color: #26a69a; }
     .sma-down { color: #ef5350; }
+    .cand-btn { font-size: 12px; padding: 2px 7px; background: #2a2e39; border-color: #363a45; color: #868993; }
+    .cand-btn:hover { background: #363a45; color: #d1d4dc; }
+    .cand-btn.saved { background: #1b3a2a; border-color: #26a69a; color: #26a69a; }
+    /* --- Kandidaten-Seite --- */
+    #cand-page { flex: 1; display: none; overflow-y: auto; padding: 16px; flex-direction: column; gap: 12px; }
+    #cand-header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding-bottom: 10px; border-bottom: 1px solid #2a2e39; }
+    #cand-header h2 { margin: 0; font-size: 15px; font-weight: 600; }
+    #cand-empty { color: #868993; font-size: 14px; padding: 32px 0; text-align: center; }
+    .cand-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .cand-tbl th { color: #868993; font-weight: 500; padding: 7px 10px; text-align: left; border-bottom: 2px solid #2a2e39; white-space: nowrap; }
+    .cand-tbl td { padding: 7px 10px; border-bottom: 1px solid #2a2e39; white-space: nowrap; }
+    .cand-tbl tr:last-child td { border-bottom: none; }
+    .cand-tbl tbody tr:hover { background: rgba(41,98,255,0.07); }
+    .cand-del { font-size: 12px; padding: 3px 7px; background: transparent; border-color: #ef5350; color: #ef5350; }
+    .cand-del:hover { background: rgba(239,83,80,0.12); }
 
     #tab-bar { display: flex; background: #1e222d; border-bottom: 1px solid #2a2e39; padding: 0 16px; flex-shrink: 0; }
     #tab-bar button { background: none; border: none; border-bottom: 3px solid transparent; color: #868993; padding: 9px 16px; font-size: 13.5px; cursor: pointer; border-radius: 0; }
@@ -157,6 +172,7 @@
     <button class="active" data-tab="chart">Chart</button>
     <button data-tab="trades">Kaufsignale &amp; Trades</button>
     <button data-tab="screener">Turtle Screener</button>
+    <button data-tab="candidates">Kandidaten</button>
     <button data-tab="watchlist">Merkliste</button>
   </nav>
   <div id="status"></div>
@@ -214,9 +230,25 @@
     <table class="screen-tbl" id="screener-tbl" style="display:none">
       <thead><tr>
         <th></th><th>Symbol</th><th>Name</th><th>Index</th>
-        <th>Signal</th><th>Kurs</th><th>Ausbruch</th><th>Tiefstkurs</th><th>Abstand</th><th>SMA 20</th>
+        <th>Signal</th><th>Kurs</th><th>Ausbruch</th><th>Tiefstkurs</th><th>Abstand</th><th>SMA 20</th><th></th>
       </tr></thead>
       <tbody id="screener-tbody"></tbody>
+    </table>
+  </div>
+  <div id="cand-page">
+    <div id="cand-header">
+      <h2>Kandidaten</h2>
+      <span style="font-size:13px;color:#868993;flex:1">Aus dem Screener übernommene Kaufkandidaten</span>
+      <button id="exportCandBtn" style="font-size:13px;padding:6px 12px" disabled>📥 Exportieren</button>
+    </div>
+    <div id="cand-empty">Noch keine Kandidaten. Im Screener auf + klicken.</div>
+    <table class="cand-tbl" id="cand-tbl" style="display:none">
+      <thead><tr>
+        <th>Symbol</th><th>Name</th><th>Index</th>
+        <th>Signal</th><th>Kurs</th><th>Ausbruch</th><th>Tiefstkurs</th><th>Abstand</th><th>SMA 20</th>
+        <th>Übernommen</th><th></th>
+      </tr></thead>
+      <tbody id="cand-tbody"></tbody>
     </table>
   </div>
   <div id="watchlist-page">
@@ -1121,13 +1153,15 @@
         document.querySelectorAll("#tab-bar button").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         const tab = btn.dataset.tab;
-        document.getElementById("main").style.display           = tab === "chart"     ? "flex" : "none";
-        document.getElementById("trades-page").style.display   = tab === "trades"    ? "flex" : "none";
-        document.getElementById("screener-page").style.display = tab === "screener"  ? "flex" : "none";
-        document.getElementById("watchlist-page").style.display= tab === "watchlist" ? "flex" : "none";
-        if (tab === "trades")    populateTradesPage();
-        if (tab === "screener")  loadScreenerReport();
-        if (tab === "watchlist") loadWatchlist();
+        document.getElementById("main").style.display            = tab === "chart"      ? "flex" : "none";
+        document.getElementById("trades-page").style.display    = tab === "trades"     ? "flex" : "none";
+        document.getElementById("screener-page").style.display  = tab === "screener"   ? "flex" : "none";
+        document.getElementById("cand-page").style.display      = tab === "candidates" ? "flex" : "none";
+        document.getElementById("watchlist-page").style.display = tab === "watchlist"  ? "flex" : "none";
+        if (tab === "trades")      populateTradesPage();
+        if (tab === "screener")    loadScreenerReport();
+        if (tab === "candidates")  loadCandidates();
+        if (tab === "watchlist")   loadWatchlist();
       });
     });
 
@@ -1289,10 +1323,38 @@
           `<td>${r.breakout_price != null ? r.breakout_price.toFixed(2) : "–"}</td>` +
           `<td>${r.lowest_low != null ? r.lowest_low.toFixed(2) : "–"}</td>` +
           `<td class="${r.gap_pct >= 25 ? "sma-up" : ""}">${r.gap_pct != null ? r.gap_pct.toFixed(1) + "%" : "–"}</td>` +
-          `<td>${smaStr}</td>`;
+          `<td>${smaStr}</td>` +
+          `<td><button class="cand-btn${candidateSymbols.has(r.symbol) ? " saved" : ""}" data-symbol="${r.symbol}">` +
+          `${candidateSymbols.has(r.symbol) ? "✓" : "+"}</button></td>`;
+
+        const candBtn = tr.querySelector(".cand-btn");
+        candBtn.addEventListener("click", async e => {
+          e.stopPropagation();
+          const sym = candBtn.dataset.symbol;
+          if (candBtn.classList.contains("saved")) {
+            await safeJsonFetch(`/api/candidates/${encodeURIComponent(sym)}`, { method: "DELETE" }).catch(() => {});
+            candidateSymbols.delete(sym);
+            candBtn.classList.remove("saved");
+            candBtn.textContent = "+";
+          } else {
+            await safeJsonFetch("/api/candidates", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                symbol: sym, name: r.name, index_name: r.index_name,
+                signal_date: r.signal_date, breakout_price: r.breakout_price,
+                lowest_low: r.lowest_low, gap_pct: r.gap_pct,
+                sma20: r.sma10, close_price: r.close_price,
+              }),
+            }).catch(() => {});
+            candidateSymbols.add(sym);
+            candBtn.classList.add("saved");
+            candBtn.textContent = "✓";
+          }
+        });
 
         tr.addEventListener("click", e => {
-          if (e.target.closest(".star-btn")) return;
+          if (e.target.closest(".star-btn") || e.target.closest(".cand-btn")) return;
           document.getElementById("turtleToggle").checked = true;
           document.getElementById("rsiToggle").checked = false;
           document.getElementById("symbol").value = r.symbol;
@@ -1411,6 +1473,100 @@
       }
     }
 
+    // ---- Kandidaten ----
+    let candidateSymbols = new Set();
+
+    async function loadCandidates() {
+      const emptyEl = document.getElementById("cand-empty");
+      const tblEl   = document.getElementById("cand-tbl");
+      const tbody   = document.getElementById("cand-tbody");
+      const expBtn  = document.getElementById("exportCandBtn");
+      try {
+        const rows = await safeJsonFetch("/api/candidates");
+        candidateSymbols = new Set(rows.map(r => r.symbol));
+        document.querySelectorAll(".cand-btn").forEach(btn => {
+          const in_ = candidateSymbols.has(btn.dataset.symbol);
+          btn.classList.toggle("saved", in_);
+          btn.textContent = in_ ? "✓" : "+";
+        });
+        expBtn.disabled = rows.length === 0;
+        tbody.innerHTML = "";
+        if (!rows.length) {
+          emptyEl.style.display = "";
+          tblEl.style.display = "none";
+          return;
+        }
+        emptyEl.style.display = "none";
+        tblEl.style.display = "";
+        const now = Date.now();
+        rows.forEach(r => {
+          const tr = document.createElement("tr");
+          const days = Math.round((now - new Date(r.signal_date + "T12:00:00").getTime()) / 86400000);
+          const ageStr = days === 0 ? "heute" : days === 1 ? "gestern" : days + " Tage";
+          const addedDate = r.added_at ? new Date(r.added_at).toLocaleDateString("de-DE") : "–";
+          const hasSma = r.close_price != null && r.sma20 != null;
+          const smaUp  = hasSma && r.close_price > r.sma20;
+          const smaStr = hasSma
+            ? `${r.sma20.toFixed(2)} <span class="${smaUp ? "sma-up" : "sma-down"}">${smaUp ? "↑" : "↓"}</span>`
+            : "–";
+          tr.innerHTML =
+            `<td><strong>${r.symbol}</strong></td>` +
+            `<td>${r.name}</td>` +
+            `<td><span class="idx-badge">${r.index_name || "–"}</span></td>` +
+            `<td>${r.signal_date} <span style="color:#868993;font-size:11px">(${ageStr})</span></td>` +
+            `<td>${r.close_price != null ? r.close_price.toFixed(2) : "–"}</td>` +
+            `<td>${r.breakout_price != null ? r.breakout_price.toFixed(2) : "–"}</td>` +
+            `<td>${r.lowest_low != null ? r.lowest_low.toFixed(2) : "–"}</td>` +
+            `<td class="${(r.gap_pct||0) >= 25 ? "sma-up" : ""}">${r.gap_pct != null ? r.gap_pct.toFixed(1) + "%" : "–"}</td>` +
+            `<td>${smaStr}</td>` +
+            `<td style="color:#868993">${addedDate}</td>` +
+            `<td style="display:flex;gap:6px">` +
+              `<button class="watch-open" data-symbol="${r.symbol}" title="Im Chart öffnen">📈</button>` +
+              `<button class="cand-del" data-symbol="${r.symbol}">✕</button>` +
+            `</td>`;
+          tr.querySelector(".watch-open").addEventListener("click", () => {
+            document.getElementById("turtleToggle").checked = true;
+            document.getElementById("rsiToggle").checked = false;
+            document.getElementById("symbol").value = r.symbol;
+            document.querySelector('[data-tab="chart"]').click();
+            document.getElementById("load").click();
+          });
+          tr.querySelector(".cand-del").addEventListener("click", async () => {
+            await safeJsonFetch(`/api/candidates/${encodeURIComponent(r.symbol)}`, { method: "DELETE" }).catch(() => {});
+            loadCandidates();
+          });
+          tbody.appendChild(tr);
+        });
+      } catch (e) {
+        emptyEl.textContent = "Fehler: " + e.message;
+        emptyEl.style.display = "";
+        tblEl.style.display = "none";
+      }
+    }
+
+    document.getElementById("exportCandBtn").addEventListener("click", async () => {
+      const rows = await safeJsonFetch("/api/candidates").catch(() => []);
+      if (!rows.length) return;
+      const sep = ";";
+      const header = ["Symbol","Name","Index","Signal-Datum","Kurs","Ausbruchskurs","Tiefstkurs","Abstand %","SMA 20","Übernommen am"].join(sep);
+      const lines = rows.map(r => [
+        r.symbol, `"${r.name.replace(/"/g,'""')}"`, r.index_name || "",
+        r.signal_date,
+        r.close_price != null ? r.close_price.toFixed(2).replace(".",",") : "",
+        r.breakout_price != null ? r.breakout_price.toFixed(2).replace(".",",") : "",
+        r.lowest_low != null ? r.lowest_low.toFixed(2).replace(".",",") : "",
+        r.gap_pct != null ? r.gap_pct.toFixed(1).replace(".",",") + "%" : "",
+        r.sma20 != null ? r.sma20.toFixed(2).replace(".",",") : "",
+        r.added_at ? new Date(r.added_at).toLocaleDateString("de-DE") : "",
+      ].join(sep));
+      const csv = "﻿" + [header, ...lines].join("\r\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = Object.assign(document.createElement("a"), { href: url, download: `kandidaten-${new Date().toISOString().slice(0,10)}.csv` });
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
     document.getElementById("updateBtn").addEventListener("click", async () => {
       const btn = document.getElementById("updateBtn");
       if (btn.classList.contains("running")) return;
@@ -1449,9 +1605,12 @@
       }
     });
 
-    // Watchlist-Symbole vorladen, damit Screener-Sterne sofort korrekt sind
+    // Watchlist- und Kandidaten-Symbole vorladen, damit Buttons sofort korrekt sind
     safeJsonFetch("/api/watchlist").then(rows => {
       watchlistSymbols = new Set(rows.map(r => r.symbol));
+    }).catch(() => {});
+    safeJsonFetch("/api/candidates").then(rows => {
+      candidateSymbols = new Set(rows.map(r => r.symbol));
     }).catch(() => {});
 
     restoreFilterState(); // gespeicherten Filterstand wiederherstellen (Alter, SMA)

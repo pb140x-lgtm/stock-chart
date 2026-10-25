@@ -59,6 +59,19 @@ function initSchema() {
       signal_date TEXT NOT NULL,
       added_at    TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS candidates (
+      symbol         TEXT PRIMARY KEY,
+      name           TEXT NOT NULL,
+      index_name     TEXT,
+      signal_date    TEXT NOT NULL,
+      added_at       TEXT NOT NULL,
+      breakout_price REAL,
+      lowest_low     REAL,
+      gap_pct        REAL,
+      sma20          REAL,
+      close_price    REAL
+    );
   `);
   // Migration: sma10 für bestehende DBs ergänzen
   try { db.exec("ALTER TABLE screener_results ADD COLUMN sma10 REAL"); } catch {}

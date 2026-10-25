@@ -214,4 +214,30 @@ function removeFromWatchlist(symbol) {
   } finally { db.close(); }
 }
 
-module.exports = { runUpdate, getLatestReport, getWatchlist, addToWatchlist, removeFromWatchlist };
+function getCandidates() {
+  const db = openDb();
+  try {
+    return db.prepare(
+      "SELECT symbol, name, index_name, signal_date, added_at, breakout_price, lowest_low, gap_pct, sma20, close_price FROM candidates ORDER BY added_at DESC"
+    ).all();
+  } finally { db.close(); }
+}
+
+function addCandidate(c) {
+  const db = openDb();
+  try {
+    db.prepare(
+      "INSERT OR REPLACE INTO candidates (symbol, name, index_name, signal_date, added_at, breakout_price, lowest_low, gap_pct, sma20, close_price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ).run(c.symbol, c.name, c.index_name ?? null, c.signal_date, new Date().toISOString(),
+          c.breakout_price ?? null, c.lowest_low ?? null, c.gap_pct ?? null, c.sma20 ?? null, c.close_price ?? null);
+  } finally { db.close(); }
+}
+
+function removeCandidate(symbol) {
+  const db = openDb();
+  try {
+    db.prepare("DELETE FROM candidates WHERE symbol = ?").run(symbol);
+  } finally { db.close(); }
+}
+
+module.exports = { runUpdate, getLatestReport, getWatchlist, addToWatchlist, removeFromWatchlist, getCandidates, addCandidate, removeCandidate };

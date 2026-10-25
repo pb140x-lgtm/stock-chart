@@ -6,7 +6,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const { initSchema } = require("./db/schema");
-const { runUpdate, getLatestReport, getWatchlist, addToWatchlist, removeFromWatchlist } = require("./db/update");
+const { runUpdate, getLatestReport, getWatchlist, addToWatchlist, removeFromWatchlist, getCandidates, addCandidate, removeCandidate } = require("./db/update");
 
 // --- Datenbank initialisieren ---
 initSchema();
@@ -321,6 +321,47 @@ const server = http.createServer(async (req, res) => {
     try {
       const symbol = decodeURIComponent(url.pathname.slice("/api/watchlist/".length)).toUpperCase();
       removeFromWatchlist(symbol);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ ok: true }));
+    } catch (e) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: e.message }));
+    }
+  }
+
+  // --- API: Kandidaten lesen ---
+  if (url.pathname === "/api/candidates" && req.method === "GET") {
+    try {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify(getCandidates()));
+    } catch (e) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: e.message }));
+    }
+  }
+
+  // --- API: Kandidat hinzufügen ---
+  if (url.pathname === "/api/candidates" && req.method === "POST") {
+    try {
+      const body = await new Promise((resolve, reject) => {
+        let d = ""; req.on("data", c => d += c); req.on("end", () => resolve(d)); req.on("error", reject);
+      });
+      const c = JSON.parse(body);
+      if (!c.symbol || !c.name || !c.signal_date) throw new Error("symbol, name und signal_date erforderlich");
+      addCandidate({ ...c, symbol: c.symbol.toUpperCase() });
+      res.writeHead(200, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ ok: true }));
+    } catch (e) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: e.message }));
+    }
+  }
+
+  // --- API: Kandidat entfernen ---
+  if (url.pathname.startsWith("/api/candidates/") && req.method === "DELETE") {
+    try {
+      const symbol = decodeURIComponent(url.pathname.slice("/api/candidates/".length)).toUpperCase();
+      removeCandidate(symbol);
       res.writeHead(200, { "Content-Type": "application/json" });
       return res.end(JSON.stringify({ ok: true }));
     } catch (e) {
