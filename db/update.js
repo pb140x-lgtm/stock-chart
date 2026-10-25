@@ -1,13 +1,14 @@
-// Tägliches Update: lädt OHLCV von Yahoo Finance, berechnet Turtle-Kaufsignale
-// Signalregel: Ausbruch über 20-Tage-Hoch, tiefstes Tief seit letztem Kaufsignal ≥ 15% darunter
+// Tägliches Update: lädt OHLCV von Yahoo Finance, ermittelt aktive Turtle-Kaufsignale.
+// Logik: identisch mit dem Chart — computeAllTurtleSignals aus signals.js.
+// Eine Aktie erscheint, solange ihr letztes Signal ein Kauf ist (kein Folge-Kauf, kein Verkauf).
 
 const { openDb } = require("./schema");
+const { computeAllTurtleSignals, computeSMA } = require("../public/signals.js");
 const path = require("path");
 const fs = require("fs");
 
 const SYMBOLS_FILE = path.join(__dirname, "..", "symbols", "stoxx600.json");
 const PERIOD = 20;
-const GAP_MIN = 0.15;
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -56,40 +57,27 @@ function hasData(db, symbol) {
   return db.prepare("SELECT 1 FROM ohlcv WHERE symbol = ? LIMIT 1").get(symbol) != null;
 }
 
-// Prüft via SQL ob heute ein gültiges Turtle-Kaufsignal vorliegt.
-// Kein In-Memory-Scan der gesamten Geschichte — alles aus der DB.
-function checkTodaySignal(db, symbol, today) {
-  // Heutige Kerze
-  const todayRow = db.prepare(
-    "SELECT high, low FROM ohlcv WHERE symbol = ? AND date = ?"
-  ).get(symbol, today);
-  if (!todayRow) return null;
+// Prüft ob das letzte Turtle-Signal für dieses Symbol ein Kauf ist.
+// Identische Logik zum Chart: computeAllTurtleSignals aus signals.js.
+// Gibt Signal-Datum, Ausbruchskurs und aktuellen SMA 10 zurück, oder null.
+function checkCurrentSignal(db, symbol) {
+  const rows = db.prepare(
+    "SELECT date, high, low, close FROM ohlcv WHERE symbol = ? ORDER BY date ASC"
+  ).all(symbol);
 
-  // 20-Tages-Hoch der 20 Handelstage VOR heute
-  const highRow = db.prepare(
-    "SELECT MAX(h) AS prevHigh FROM (SELECT high AS h FROM ohlcv WHERE symbol = ? AND date < ? ORDER BY date DESC LIMIT 20)"
-  ).get(symbol, today);
-  if (!highRow || highRow.prevHigh == null) return null;
+  if (rows.length <= PERIOD) return null;
 
-  const prevHigh = highRow.prevHigh;
-  if (todayRow.high <= prevHigh) return null; // kein Ausbruch
+  const candles = rows.map(r => ({ time: r.date, high: r.high, low: r.low, close: r.close }));
+  const signals = computeAllTurtleSignals(candles, PERIOD);
+  if (!signals.length) return null;
 
-  // Letztes gespeichertes Signal für dieses Symbol
-  const lastSig = db.prepare(
-    "SELECT signal_date FROM screener_results WHERE symbol = ? ORDER BY run_date DESC LIMIT 1"
-  ).get(symbol);
-  const fromDate = lastSig ? lastSig.signal_date : "1900-01-01";
+  const last = signals[signals.length - 1];
+  if (last.type !== "buy") return null;
 
-  // Tiefstes Tief seit letztem Signal (exkl. Signal-Tag selbst und heute)
-  const lowRow = db.prepare(
-    "SELECT MIN(low) AS lowestLow FROM ohlcv WHERE symbol = ? AND date > ? AND date < ?"
-  ).get(symbol, fromDate, today);
+  const sma10arr = computeSMA(candles, 10);
+  const sma10 = sma10arr.length ? sma10arr[sma10arr.length - 1].value : null;
 
-  const lowestLow = lowRow?.lowestLow ?? todayRow.low;
-  const gapPct = (prevHigh - lowestLow) / prevHigh;
-  if (gapPct < GAP_MIN) return null;
-
-  return { date: today, breakoutPrice: prevHigh, lowestLow, gapPct: gapPct * 100 };
+  return { date: last.time, breakoutPrice: last.breakout, sma10 };
 }
 
 async function runUpdate(onProgress) {
@@ -112,7 +100,7 @@ async function runUpdate(onProgress) {
         storeCandles(db, symbol, candles);
         symbolsUpdated++;
 
-        const sig = checkTodaySignal(db, symbol, today);
+        const sig = checkCurrentSignal(db, symbol);
         if (sig) { results.push({ symbol, name, ...sig }); signalsFound++; }
       } catch (err) {
         errors++;
@@ -127,9 +115,9 @@ async function runUpdate(onProgress) {
     // Ergebnisse in DB schreiben
     db.exec(`DELETE FROM screener_results WHERE run_date = '${today}'`);
     const ins = db.prepare(
-      "INSERT INTO screener_results (run_date, symbol, name, signal_date, breakout_price, lowest_low, gap_pct) VALUES (?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO screener_results (run_date, symbol, name, signal_date, breakout_price, sma10) VALUES (?, ?, ?, ?, ?, ?)"
     );
-    for (const r of results) ins.run(today, r.symbol, r.name, r.date, r.breakoutPrice, r.lowestLow, r.gapPct);
+    for (const r of results) ins.run(today, r.symbol, r.name, r.date, r.breakoutPrice, r.sma10 ?? null);
 
     const duration = Date.now() - t0;
     db.prepare(
@@ -154,12 +142,14 @@ function getLatestReport() {
     if (!logRow) return { runAt: null, results: [] };
 
     const allRows = db.prepare(
-      `SELECT sr.symbol, sr.name, sr.signal_date, sr.breakout_price, sr.lowest_low, sr.gap_pct,
-              sr.run_date, o.close AS close_price
+      `SELECT sr.symbol, sr.name, sr.signal_date, sr.breakout_price, sr.sma10,
+              sr.run_date, o.close AS close_price,
+              s.index_name
        FROM screener_results sr
-       LEFT JOIN ohlcv o ON o.symbol = sr.symbol AND o.date = sr.run_date
-       WHERE sr.run_date >= date('now', '-5 days')
-       ORDER BY sr.run_date DESC, sr.gap_pct DESC`
+       LEFT JOIN ohlcv o   ON o.symbol = sr.symbol AND o.date = sr.run_date
+       LEFT JOIN symbols s ON s.symbol = sr.symbol
+       WHERE sr.run_date = (SELECT MAX(run_date) FROM screener_results)
+       ORDER BY sr.signal_date DESC, sr.symbol ASC`
     ).all();
 
     // Pro Symbol nur den jüngsten Eintrag behalten

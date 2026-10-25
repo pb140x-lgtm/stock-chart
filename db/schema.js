@@ -41,6 +41,7 @@ function initSchema() {
       breakout_price REAL,
       lowest_low     REAL,
       gap_pct        REAL,
+      sma10          REAL,
       PRIMARY KEY (run_date, symbol)
     );
 
@@ -59,6 +60,8 @@ function initSchema() {
       added_at    TEXT NOT NULL
     );
   `);
+  // Migration: sma10 für bestehende DBs ergänzen
+  try { db.exec("ALTER TABLE screener_results ADD COLUMN sma10 REAL"); } catch {}
   db.close();
 }
 
