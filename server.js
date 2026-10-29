@@ -68,6 +68,8 @@ app.post("/api/trades/:symbol", (req, res) => {
 });
 
 // ── Claude Proxy ─────────────────────────────────────────────
+const tokenTotals = { input: 0, output: 0 };
+
 app.post("/api/claude", async (req, res) => {
   const { apiKey, messages, system } = req.body;
   if (!apiKey) return res.status(400).json({ error: "API Key fehlt" });
@@ -79,6 +81,11 @@ app.post("/api/claude", async (req, res) => {
     });
     const data = await r.json();
     if (!r.ok) return res.status(r.status).json(data);
+    if (data.usage) {
+      tokenTotals.input  += data.usage.input_tokens  || 0;
+      tokenTotals.output += data.usage.output_tokens || 0;
+      console.log(`[Claude] ↑ ${data.usage.input_tokens} · ↓ ${data.usage.output_tokens} tokens   Gesamt: ↑ ${tokenTotals.input} · ↓ ${tokenTotals.output}`);
+    }
     res.json({ text: data.content?.[0]?.text || "", usage: data.usage });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
