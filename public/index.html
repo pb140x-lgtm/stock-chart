@@ -3,1611 +3,349 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>STOXX 600 Chart</title>
-<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<title>MA20 Screener</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{background:#131722;color:#d1d4dc;font-family:'Trebuchet MS',sans-serif;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+  body{background:#131722;color:#d1d4dc;font-family:'Trebuchet MS',sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
 
-  /* ── Toolbar ── */
-  #toolbar{display:flex;align-items:center;gap:8px;padding:6px 10px;background:#1e222d;border-bottom:1px solid #2a2e39;flex-wrap:wrap;flex-shrink:0}
-  #symbol-wrap{position:relative;display:flex;gap:4px;align-items:center}
-  #ticker-input{width:100px;background:#2a2e39;border:1px solid #363c4e;color:#2962ff;padding:5px 10px;border-radius:4px;font-size:13px;font-weight:700;outline:none}
-  #ticker-input:focus{border-color:#2962ff}
-  #name-input{width:170px;background:#2a2e39;border:1px solid #363c4e;color:#787b86;padding:5px 10px;border-radius:4px;font-size:12px;outline:none}
-  #name-input:focus{border-color:#2962ff;color:#d1d4dc}
-  #symbol-dropdown{position:fixed;background:#1e222d;border:1px solid #363c4e;border-radius:4px;max-height:320px;overflow-y:auto;z-index:9999;display:none;min-width:380px;box-shadow:0 4px 20px #00000088}
-  .sym-item{padding:6px 10px;cursor:pointer;font-size:12px;display:flex;gap:8px}
-  .sym-item:hover{background:#2a2e39}
-  .sym-item .sym-code{color:#2962ff;font-weight:bold;min-width:80px}
-  .sym-item .sym-index{color:#787b86;font-size:11px;margin-left:auto}
+  /* Header */
+  #hdr{background:#1e222d;border-bottom:1px solid #2a2e39;padding:8px 14px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+  #hdr h1{font-size:14px;font-weight:700;color:#d1d4dc;margin-right:4px}
+  .tab-btn{background:none;border:none;color:#787b86;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600}
+  .tab-btn:hover:not(.active){color:#d1d4dc;background:#2a2e39}
+  .tab-btn.active{color:#2962ff;background:#1c2f7a30}
 
-  .sep{width:1px;height:24px;background:#2a2e39}
+  /* Layout */
+  #main{flex:1;overflow:hidden;display:flex;flex-direction:column}
+  .pane{display:none;flex:1;flex-direction:column;overflow:hidden}
+  .pane.active{display:flex}
 
-  /* Zeitrahmen */
-  .tf-btn{background:none;border:none;color:#787b86;padding:4px 7px;border-radius:3px;cursor:pointer;font-size:12px;font-weight:600}
-  .tf-btn:hover{color:#d1d4dc;background:#2a2e39}
-  .tf-btn.active{color:#2962ff;background:#1c2f7a30}
+  /* Toolbar */
+  .toolbar{background:#1e222d;border-bottom:1px solid #2a2e39;padding:7px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
+  .meta{font-size:11px;color:#787b86;flex:1;min-width:0}
+  .btn{background:#2a2e39;border:1px solid #363c4e;color:#d1d4dc;padding:4px 11px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600}
+  .btn:hover:not(:disabled){border-color:#787b86}
+  .btn.primary{border-color:#2962ff55;color:#2962ff}
+  .btn.primary:hover:not(:disabled){background:#1c2f7a30}
+  .btn:disabled{opacity:0.45;cursor:not-allowed}
+  .pulse{display:inline-block;width:7px;height:7px;border-radius:50%;background:#f59e0b;animation:blink 1s ease-in-out infinite;margin-right:5px;vertical-align:middle}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
 
-  /* Indikatoren */
-  .ind-btn{background:#2a2e39;border:1px solid #363c4e;color:#787b86;padding:4px 9px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600}
-  .ind-btn:hover{border-color:#787b86;color:#d1d4dc}
-  .ind-btn.active{border-color:#2962ff;color:#2962ff;background:#1c2f7a30}
+  /* Watchlist-Add Form */
+  .wl-form{background:#1e222d;border-bottom:1px solid #2a2e39;padding:7px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .wl-form input{background:#2a2e39;border:1px solid #363c4e;color:#d1d4dc;padding:4px 10px;border-radius:4px;font-size:12px;width:150px;outline:none}
+  .wl-form input:focus{border-color:#2962ff}
+  .wl-form input::placeholder{color:#555d6b}
+  .wl-add-status{font-size:11px;color:#26a69a}
 
-  #current-price{font-size:14px;font-weight:700;margin-left:4px}
-  #price-change{font-size:12px;margin-left:2px}
-  .up{color:#26a69a}
-  .dn{color:#ef5350}
+  /* Watchlist Pills */
+  .wl-pills{display:flex;flex-wrap:wrap;gap:5px;padding:7px 14px;background:#131722;border-bottom:1px solid #2a2e39;flex-shrink:0;max-height:70px;overflow-y:auto}
+  .pill{display:flex;align-items:center;gap:5px;background:#1e222d;border:1px solid #2a2e39;border-radius:4px;padding:2px 8px;font-size:11px}
+  .pill-sym{color:#2962ff;font-weight:700}
+  .pill-name{color:#787b86}
+  .pill-rm{background:none;border:none;color:#555d6b;cursor:pointer;font-size:13px;line-height:1;padding:0 2px;margin-left:2px}
+  .pill-rm:hover{color:#ef5350}
+  .wl-empty{color:#555d6b;font-size:12px;padding:4px 0}
 
-  /* ── Haupt-Layout ── */
-  #main{display:flex;flex:1;overflow:hidden}
+  /* Results */
+  .results{flex:1;overflow-y:auto;padding:8px 14px}
+  .no-data{color:#555d6b;font-size:12px;padding:16px 0}
 
-  /* ── Charts-Bereich ── */
-  #charts-col{flex:1;display:flex;flex-direction:column;overflow:hidden}
+  /* Hit item */
+  .hit{background:#1e222d;border:1px solid #2a2e39;border-radius:5px;margin-bottom:5px;overflow:hidden}
+  .hit-hdr{display:flex;align-items:center;gap:8px;padding:8px 11px;cursor:pointer;user-select:none}
+  .hit-hdr:hover{background:#232733}
+  .hit-sym{font-size:12px;font-weight:700;color:#2962ff;min-width:85px;flex-shrink:0}
+  .hit-name{font-size:12px;color:#d1d4dc;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .hit-idx{font-size:10px;color:#787b86;padding:2px 6px;background:#2a2e39;border-radius:3px;white-space:nowrap;flex-shrink:0}
+  .hit-badge{font-size:10px;padding:2px 7px;border-radius:3px;white-space:nowrap;flex-shrink:0}
+  .bl{background:#26a69a1a;color:#26a69a;border:1px solid #26a69a33}
+  .bs{background:#ef53501a;color:#ef5350;border:1px solid #ef535033}
+  .bc{background:#2a2e39;color:#787b86;border:1px solid #363c4e}
+  .wl-btn{background:none;border:1px solid #363c4e;color:#787b86;padding:2px 8px;border-radius:3px;cursor:pointer;font-size:10px;flex-shrink:0;white-space:nowrap}
+  .wl-btn:hover{border-color:#2962ff;color:#2962ff}
+  .wl-btn.inWL{color:#26a69a;border-color:#26a69a44}
+  .hit-arr{color:#787b86;font-size:10px;margin-left:2px;flex-shrink:0;transition:transform .15s}
+  .hit.open .hit-arr{transform:rotate(180deg)}
 
-  /* Crosshair-Info */
-  #ohlc-bar{padding:3px 10px;background:#131722;font-size:11px;color:#787b86;display:flex;gap:12px;flex-shrink:0;height:20px}
-  #ohlc-bar span{white-space:nowrap}
-
-  /* Chart-Container */
-  #main-chart-wrap{flex:1;position:relative;min-height:0}
-  #main-chart{width:100%;height:100%}
-
-  /* Legenden-Labels oben rechts im Chart */
-  #legend{position:absolute;top:6px;left:10px;display:flex;flex-wrap:wrap;gap:6px;pointer-events:none;z-index:5}
-  .leg-item{font-size:11px;font-weight:600;padding:2px 6px;border-radius:3px;background:#131722cc}
-
-  /* Sub-Charts */
-  #sub-charts{display:flex;flex-direction:column;flex-shrink:0}
-  .sub-wrap{position:relative;flex-shrink:0}
-  .sub-label{position:absolute;top:4px;left:10px;font-size:11px;font-weight:600;color:#787b86;z-index:5;pointer-events:none}
-  .sub-chart{width:100%}
-
-  /* Resize-Griff zwischen Charts */
-  .resize-bar{height:4px;background:#2a2e39;cursor:row-resize;flex-shrink:0}
-  .resize-bar:hover{background:#2962ff}
-
-  /* ── Claude-Panel ── */
-  #claude-panel{width:280px;min-width:220px;max-width:380px;display:flex;flex-direction:column;background:#1e222d;border-left:1px solid #2a2e39;flex-shrink:0}
-  #panel-resize{width:4px;background:#2a2e39;cursor:col-resize;flex-shrink:0}
-  #panel-resize:hover{background:#2962ff}
-
-  #claude-header{padding:8px 10px;border-bottom:1px solid #2a2e39;display:flex;align-items:center;justify-content:space-between}
-  #claude-header h3{font-size:13px;font-weight:700;color:#d1d4dc}
-  #api-key-wrap{padding:8px;border-bottom:1px solid #2a2e39}
-  #api-key-input{width:100%;background:#131722;border:1px solid #363c4e;color:#787b86;padding:5px 8px;border-radius:4px;font-size:11px;outline:none}
-  #api-key-input:focus{border-color:#2962ff;color:#d1d4dc}
-  #api-key-input::placeholder{color:#4c5160}
-
-  #chat-messages{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:6px}
-  #chat-messages::-webkit-scrollbar{width:4px}
-  #chat-messages::-webkit-scrollbar-thumb{background:#363c4e;border-radius:2px}
-
-  .msg{padding:8px;border-radius:6px;font-size:12px;line-height:1.5;word-break:break-word}
-  .msg.user{background:#1c2f7a30;border:1px solid #1c2f7a60;color:#d1d4dc;align-self:flex-end;max-width:95%}
-  .msg.assistant{background:#2a2e39;border:1px solid #363c4e;color:#d1d4dc;align-self:flex-start;max-width:95%}
-  .msg.system{color:#787b86;font-size:11px;text-align:center;background:none;border:none}
-
-  #chat-input-area{padding:8px;border-top:1px solid #2a2e39;display:flex;flex-direction:column;gap:6px}
-  #chat-input{width:100%;background:#131722;border:1px solid #363c4e;color:#d1d4dc;padding:7px 8px;border-radius:4px;font-size:12px;outline:none;resize:none;min-height:60px;max-height:120px;font-family:inherit}
-  #chat-input:focus{border-color:#2962ff}
-  #chat-input::placeholder{color:#4c5160}
-
-  #chat-actions{display:flex;gap:6px}
-  #send-btn{flex:1;background:#2962ff;border:none;color:#fff;padding:6px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600}
-  #send-btn:hover{background:#1e53e5}
-  #send-btn:disabled{background:#363c4e;cursor:not-allowed}
-  #context-btn{background:#2a2e39;border:1px solid #363c4e;color:#787b86;padding:6px 8px;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap}
-  #context-btn:hover{border-color:#787b86;color:#d1d4dc}
-
-  .msg-tokens{font-size:10px;color:#4c5160;text-align:right;padding:1px 2px 0;align-self:flex-end}
-  #status-dot{width:8px;height:8px;border-radius:50%;background:#363c4e}
-  #status-dot.ok{background:#26a69a}
-  #status-dot.err{background:#ef5350}
-  #status-dot.thinking{background:#f0b90b;animation:pulse 1s infinite}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-
-  /* ── Tabs ── */
-  #tab-bar{display:flex;gap:2px;padding:0 10px;background:#1e222d;border-bottom:1px solid #2a2e39;flex-shrink:0}
-  .tab-btn{background:none;border:none;border-bottom:2px solid transparent;color:#787b86;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:600;margin-bottom:-1px}
-  .tab-btn:hover{color:#d1d4dc}
-  .tab-btn.active{color:#2962ff;border-bottom-color:#2962ff}
-
-  /* ── Messwerkzeug ── */
-  #measure-canvas{position:absolute;top:0;left:0;pointer-events:none;z-index:1001}
-  #measure-overlay{position:absolute;top:0;left:0;right:0;bottom:0;z-index:1000;display:none;cursor:crosshair}
-  #measure-info{position:absolute;background:#1e222d;border:1px solid #2962ff;border-radius:4px;padding:5px 10px;font-size:12px;color:#d1d4dc;pointer-events:none;white-space:nowrap;z-index:1002;display:none;gap:10px}
-
-  /* ── Screener-View ── */
-  #screener-view{flex:1;display:none;flex-direction:column;overflow:hidden;padding:12px}
-  #screener-header{display:flex;align-items:center;gap:16px;margin-bottom:10px;flex-shrink:0}
-  #screener-header h2{font-size:14px;font-weight:700;color:#d1d4dc}
-  #screener-meta{font-size:12px;color:#787b86}
-  #screener-table-wrap{flex:1;overflow-y:auto}
-  #screener-table{width:100%;border-collapse:collapse;font-size:12px}
-  #screener-table th{background:#1e222d;color:#787b86;padding:6px 10px;text-align:left;border-bottom:1px solid #2a2e39;position:sticky;top:0;font-weight:600;white-space:nowrap;cursor:pointer}
-  #screener-table th:hover{color:#d1d4dc}
-  #screener-table td{padding:6px 10px;border-bottom:1px solid #1e222d;white-space:nowrap}
-  #screener-table tr:hover td{background:#1e222d;cursor:pointer}
-  .ret-pos{color:#26a69a;font-weight:600}
-  .ret-neg{color:#ef5350;font-weight:600}
-  .idx-badge{font-size:10px;color:#787b86;background:#2a2e39;padding:1px 5px;border-radius:3px}
-
-  /* ── Merkliste ── */
-  #watchlist-view{flex:1;display:none;flex-direction:column;overflow:hidden;padding:12px;gap:10px}
-  #watchlist-search-bar{display:flex;gap:8px;flex-shrink:0}
-  #watchlist-search{flex:1;background:#2a2e39;border:1px solid #363c4e;color:#d1d4dc;padding:6px 10px;border-radius:4px;font-size:13px;outline:none}
-  #watchlist-search:focus{border-color:#2962ff}
-  #watchlist-search-results{position:fixed;background:#1e222d;border:1px solid #363c4e;border-radius:4px;max-height:280px;overflow-y:auto;z-index:9999;display:none;min-width:380px;box-shadow:0 4px 20px #00000088}
-  #watchlist-table-wrap{flex:1;overflow-y:auto}
-  #watchlist-table{width:100%;border-collapse:collapse;font-size:13px}
-  #watchlist-table th{background:#1e222d;color:#787b86;padding:7px 12px;text-align:left;border-bottom:1px solid #2a2e39;font-weight:600;position:sticky;top:0}
-  #watchlist-table td{padding:7px 12px;border-bottom:1px solid #1e222d}
-  #watchlist-table tr:hover td{background:#1e222d;cursor:pointer}
-  .wl-remove{background:none;border:none;color:#4c5160;cursor:pointer;font-size:14px;padding:0 4px}
-  .wl-remove:hover{color:#ef5350}
-  .wl-signal{font-size:11px;padding:2px 6px;border-radius:3px;font-weight:600}
-  .wl-signal.hoch{background:#ffffff18;color:#ffffff}
-  .wl-signal.tief{background:#26a69a22;color:#26a69a}
-  .wl-empty{color:#787b86;text-align:center;padding:40px;font-size:13px}
-
-  /* ── Auswertung ── */
-  #trades-view{flex:1;display:none;flex-direction:column;overflow:hidden;padding:12px;gap:10px}
-  #trades-summary{display:flex;gap:24px;padding:8px 0;border-bottom:1px solid #2a2e39;flex-shrink:0;flex-wrap:wrap}
-  .trades-stat{display:flex;flex-direction:column;gap:2px}
-  .trades-stat .lbl{font-size:11px;color:#787b86}
-  .trades-stat .val{font-size:14px;font-weight:700;color:#d1d4dc}
-  .trades-stat .val.up{color:#26a69a}
-  .trades-stat .val.dn{color:#ef5350}
-  #trades-table-wrap{flex:1;overflow-y:auto}
-  #trades-table{width:100%;border-collapse:collapse;font-size:12px}
-  #trades-table th{background:#1e222d;color:#787b86;padding:7px 12px;text-align:left;border-bottom:1px solid #2a2e39;font-weight:600;position:sticky;top:0;white-space:nowrap}
-  #trades-table td{padding:7px 12px;border-bottom:1px solid #1e222d;white-space:nowrap}
-  #trades-table tr:hover td{background:#1e222d}
-  #trades-table tr.active-trade td{background:#26a69a0a}
-  .trade-status-ok{color:#26a69a;font-size:14px}
-  .trade-status-err{color:#ef5350;font-size:14px}
-  .trade-status-active{color:#f0b90b;font-size:11px;font-weight:600}
-  .trade-valid{display:inline-block;width:6px;height:6px;border-radius:50%;background:#26a69a;margin-right:4px;vertical-align:middle}
-
-  /* Scrollbar global */
-  ::-webkit-scrollbar{width:6px;height:6px}
-  ::-webkit-scrollbar-track{background:#131722}
-  ::-webkit-scrollbar-thumb{background:#363c4e;border-radius:3px}
+  /* Trade table */
+  .hit-body{display:none;border-top:1px solid #2a2e39}
+  .hit.open .hit-body{display:block}
+  .trade-tbl{width:100%;border-collapse:collapse;font-size:11px}
+  .trade-tbl th{background:#131722;color:#787b86;padding:5px 11px;text-align:left;font-weight:600;white-space:nowrap}
+  .trade-tbl td{padding:5px 11px;border-top:1px solid #1a1d26;white-space:nowrap}
+  .trade-tbl tr.is-open td{background:#26a69a06}
+  .long{color:#26a69a;font-weight:600}
+  .short{color:#ef5350;font-weight:600}
+  .pos{color:#26a69a}
+  .neg{color:#ef5350}
+  .open-tag{font-size:9px;background:#26a69a22;color:#26a69a;padding:1px 4px;border-radius:2px;margin-left:4px;vertical-align:middle}
 </style>
 </head>
 <body>
 
-<!-- ── Toolbar ── -->
-<div id="toolbar">
-  <!-- Symbol-Suche -->
-  <div id="symbol-wrap">
-    <input id="ticker-input" type="text" placeholder="Kürzel…" autocomplete="off" spellcheck="false">
-    <input id="name-input"   type="text" placeholder="Name…"   autocomplete="off" spellcheck="false">
-    <div id="symbol-dropdown"></div>
-  </div>
-
-  <span id="current-price">–</span>
-  <span id="price-change"></span>
-
-  <div class="sep"></div>
-
-  <!-- Zeitrahmen -->
-  <button class="tf-btn" data-range="5d">5T</button>
-  <button class="tf-btn" data-range="1mo">1M</button>
-  <button class="tf-btn" data-range="3mo">3M</button>
-  <button class="tf-btn" data-range="6mo">6M</button>
-  <button class="tf-btn active" data-range="1y">1J</button>
-  <button class="tf-btn" data-range="2y">2J</button>
-  <button class="tf-btn" data-range="5y">5J</button>
-
-  <div class="sep"></div>
-
-  <!-- Indikatoren -->
-  <button class="ind-btn active" data-ind="turtle">Turtle</button>
-  <button class="ind-btn active" data-ind="sma20">SMA 20</button>
-  <button class="ind-btn active" data-ind="sma50">SMA 50</button>
-  <button class="ind-btn" data-ind="sma100">SMA 100</button>
-  <button class="ind-btn" data-ind="sma200">SMA 200</button>
-
-  <div class="sep"></div>
-
-  <button class="ind-btn active" data-ind="macd">MACD</button>
-  <button class="ind-btn active" data-ind="rsi">RSI</button>
-  <button class="ind-btn active" data-ind="volume">Volumen</button>
-
-  <div class="sep"></div>
-  <button class="ind-btn" id="measure-btn" title="Messwerkzeug (M)" style="border-color:#363c4e">⟷ Messen</button>
+<div id="hdr">
+  <h1>MA20 Screener</h1>
+  <button class="tab-btn active" onclick="switchTab('stoxx')">STOXX 600</button>
+  <button class="tab-btn" onclick="switchTab('wl')">Watchlist</button>
 </div>
 
-<!-- ── Tab-Bar ── -->
-<div id="tab-bar">
-  <button class="tab-btn active" onclick="switchTab('chart')">Chart</button>
-  <button class="tab-btn" onclick="switchTab('trades')">Kaufsignale & Trades</button>
-  <button class="tab-btn" onclick="switchTab('screener')">Turtle Screener</button>
-  <button class="tab-btn" onclick="switchTab('watchlist')">Merkliste</button>
-</div>
-
-<!-- ── Trades-View ── -->
-<div id="trades-view">
-  <div style="display:flex;justify-content:space-between;align-items:center;flex-shrink:0;margin-bottom:4px">
-    <span id="ts-symbol" style="font-size:14px;font-weight:700;color:#d1d4dc">–</span>
-    <button id="trades-save-btn" style="background:#2962ff;border:none;color:#fff;padding:5px 14px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600">💾 Speichern</button>
-  </div>
-  <div id="trades-summary">
-    <div class="trades-stat"><span class="lbl">Signale gesamt</span><span class="val" id="ts-total">–</span></div>
-    <div class="trades-stat"><span class="lbl">Abgeschlossen</span><span class="val" id="ts-closed">–</span></div>
-    <div class="trades-stat"><span class="lbl">Treffer</span><span class="val" id="ts-winrate">–</span></div>
-    <div class="trades-stat"><span class="lbl">Ø Ertrag</span><span class="val" id="ts-avg">–</span></div>
-    <div class="trades-stat"><span class="lbl">≥15%-Moves</span><span class="val" id="ts-big">–</span></div>
-    <div class="trades-stat"><span class="lbl">Gültige K (●)</span><span class="val" id="ts-valid">–</span></div>
-  </div>
-  <div id="trades-table-wrap">
-    <table id="trades-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Typ</th>
-          <th>Einstieg</th>
-          <th>Kurs Ein</th>
-          <th>Ausstieg</th>
-          <th>Kurs Aus</th>
-          <th>Ertrag</th>
-          <th>Abstand</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody id="trades-body"></tbody>
-    </table>
-  </div>
-</div>
-
-<!-- ── Screener-View (initial hidden) ── -->
-<div id="screener-view">
-  <div id="screener-header">
-    <h2>Turtle Screener — STOXX 600</h2>
-    <span id="screener-meta">–</span>
-  </div>
-  <div id="screener-table-wrap">
-    <table id="screener-table">
-      <thead>
-        <tr>
-          <th data-col="symbol">Symbol</th>
-          <th data-col="name">Name</th>
-          <th data-col="index">Index</th>
-          <th data-col="entryDate">Long-Entry</th>
-          <th data-col="entryPrice">Kurs Ein</th>
-          <th data-col="currentPrice">Aktuell</th>
-          <th data-col="returnPct">Ertrag</th>
-          <th data-col="daysSince">Tage</th>
-          <th data-col="distFromS">Abstand S</th>
-        </tr>
-      </thead>
-      <tbody id="screener-body"></tbody>
-    </table>
-  </div>
-</div>
-
-<!-- ── Merkliste-View ── -->
-<div id="watchlist-view">
-  <div id="watchlist-search-bar">
-    <input id="watchlist-search" type="text" placeholder="Symbol oder Name suchen und zur Merkliste hinzufügen…" autocomplete="off" spellcheck="false">
-    <div id="watchlist-search-results"></div>
-  </div>
-  <div id="watchlist-table-wrap">
-    <table id="watchlist-table">
-      <thead>
-        <tr>
-          <th>Symbol</th>
-          <th>Name</th>
-          <th>Index</th>
-          <th>Signal</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="watchlist-body"></tbody>
-    </table>
-  </div>
-</div>
-
-<!-- ── Main ── -->
 <div id="main">
 
-  <!-- Charts-Spalte -->
-  <div id="charts-col">
-    <div id="ohlc-bar">
-      <span id="ohlc-o">O –</span>
-      <span id="ohlc-h">H –</span>
-      <span id="ohlc-l">L –</span>
-      <span id="ohlc-c">C –</span>
-      <span id="ohlc-date"></span>
+  <!-- STOXX 600 -->
+  <div class="pane active" id="pane-stoxx">
+    <div class="toolbar">
+      <span class="meta" id="stoxx-meta">–</span>
+      <button class="btn" id="btn-test" onclick="runScan('stoxx',true)">Test (20)</button>
+      <button class="btn primary" id="btn-stoxx" onclick="runScan('stoxx',false)">▶ Scan starten</button>
     </div>
-
-    <div id="main-chart-wrap">
-      <div id="legend"></div>
-      <div id="main-chart"></div>
-      <div id="vlines-overlay" style="position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;overflow:hidden"></div>
-      <canvas id="measure-canvas"></canvas>
-      <div id="measure-overlay"></div>
-      <div id="measure-info"></div>
-    </div>
-
-    <div id="sub-charts"></div>
+    <div class="results" id="res-stoxx"><div class="no-data">Noch kein Scan gelaufen.</div></div>
   </div>
 
-  <!-- Panel-Resize -->
-  <div id="panel-resize"></div>
-
-  <!-- Claude-Panel -->
-  <div id="claude-panel">
-    <div id="claude-header">
-      <h3>Claude Analyse</h3>
-      <div id="status-dot" title="Status"></div>
+  <!-- Watchlist -->
+  <div class="pane" id="pane-wl">
+    <div class="wl-form">
+      <input id="wl-input" type="text" placeholder="Ticker, z.B. ADS.DE"
+             onkeydown="if(event.key==='Enter')addTicker()">
+      <button class="btn primary" onclick="addTicker()">+ Hinzufügen</button>
+      <span class="wl-add-status" id="wl-status"></span>
     </div>
-    <div id="api-key-wrap">
-      <input id="api-key-input" type="password" placeholder="Anthropic API Key (sk-ant-…)">
+    <div class="wl-pills" id="wl-pills"><span class="wl-empty">Watchlist leer</span></div>
+    <div class="toolbar">
+      <span class="meta" id="wl-meta">–</span>
+      <button class="btn primary" id="btn-wl" onclick="runScan('wl',false)">▶ Scan starten</button>
     </div>
-    <div id="chat-messages">
-      <div class="msg system">Wähle ein Symbol und stelle Fragen zur Aktie oder zum Chart.</div>
-    </div>
-    <div id="chat-input-area">
-      <textarea id="chat-input" placeholder="Frage eingeben…" rows="3"></textarea>
-      <div id="chat-actions">
-        <button id="context-btn" title="Chart-Kontext anhängen">+ Chart</button>
-        <button id="send-btn">Senden</button>
-      </div>
-    </div>
+    <div class="results" id="res-wl"><div class="no-data">Noch kein Scan gelaufen.</div></div>
   </div>
 
 </div>
 
 <script>
-// ═══════════════════════════════════════════════════════
-//  State
-// ═══════════════════════════════════════════════════════
-const state = {
-  symbol: "ASML.AS",
-  name: "ASML Holding NV",
-  range: "1y",
-  candles: [],
-  indicators: { turtle: true, sma20: true, sma50: true, sma100: false, sma200: false, macd: true, rsi: true, volume: true },
-  chatHistory: [],
-  apiKey: localStorage.getItem("claudeApiKey") || "",
-  validBuyTimes: [],  // grüne Linie: Long-Entry ≥15% unter Short-Entry
-};
+"use strict";
 
-// ═══════════════════════════════════════════════════════
-//  Hilfsfunktion: Unix-Timestamp → 'YYYY-MM-DD'
-// ═══════════════════════════════════════════════════════
-function toDate(ts) {
-  const d = new Date(ts * 1000);
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
+let watchlist = [];
+let pollTimer = null;
 
-// ═══════════════════════════════════════════════════════
-//  Indikator-Berechnungen
-// ═══════════════════════════════════════════════════════
-function calcSMA(data, period) {
-  const result = [];
-  for (let i = 0; i < data.length; i++) {
-    if (i < period - 1) { result.push(null); continue; }
-    let sum = 0;
-    for (let j = i - period + 1; j <= i; j++) sum += data[j].close;
-    result.push(+(sum / period).toFixed(4));
-  }
-  return result;
-}
-
-function calcTurtle(data, period = 20) {
-  const high = [], mid = [], low = [];
-  for (let i = 0; i < data.length; i++) {
-    if (i < period - 1) { high.push(null); low.push(null); mid.push(null); continue; }
-    let maxH = -Infinity, minL = Infinity;
-    for (let j = i - period + 1; j <= i; j++) {
-      if (data[j].high > maxH) maxH = data[j].high;
-      if (data[j].low < minL) minL = data[j].low;
-    }
-    high.push(+maxH.toFixed(4));
-    low.push(+minL.toFixed(4));
-    mid.push(+((maxH + minL) / 2).toFixed(4));
-  }
-  return { high, mid, low };
-}
-
-function calcMACD(data, fast = 12, slow = 26, signal = 9) {
-  function ema(arr, period) {
-    const k = 2 / (period + 1);
-    const result = new Array(arr.length).fill(null);
-    let start = period - 1;
-    while (start < arr.length && arr[start] == null) start++;
-    let sum = 0, count = 0;
-    for (let i = Math.max(0, start - period + 1); i <= start; i++) {
-      if (arr[i] != null) { sum += arr[i]; count++; }
-    }
-    if (count === 0) return result;
-    result[start] = sum / count;
-    for (let i = start + 1; i < arr.length; i++) {
-      if (arr[i] == null) continue;
-      result[i] = arr[i] * k + result[i - 1] * (1 - k);
-    }
-    return result;
-  }
-  const closes = data.map(d => d.close);
-  const emaFast = ema(closes, fast);
-  const emaSlow = ema(closes, slow);
-  const macdLine = data.map((_, i) =>
-    emaFast[i] != null && emaSlow[i] != null ? +(emaFast[i] - emaSlow[i]).toFixed(4) : null
-  );
-  const signalLine = ema(macdLine, signal);
-  const histogram = data.map((_, i) =>
-    macdLine[i] != null && signalLine[i] != null ? +(macdLine[i] - signalLine[i]).toFixed(4) : null
-  );
-  return { macd: macdLine, signal: signalLine, histogram };
-}
-
-// Turtle-Signale — klassisches System mit Positionstracking:
-//   K (Long Entry):  close > 20T-Hoch, Position <= 0  → weißer Pfeil
-//   S (Short Entry): close < 20T-Tief, Position >= 0  → gelber Pfeil
-//   Grüne Vertikallinie: Long-Entry liegt ≥15% UNTER dem vorangegangenen Short-Entry
-//   (Short Entry S_Preis ist ≥15% höher als Long Entry K_Preis)
-function calcTurtleSignals(data, period = 20) {
-  const markers = [];
-  const validBuyTimes = [];
-  let pos = 0;
-  let lastSPrice = null;
-
-  for (let i = period; i < data.length; i++) {
-    let prevHigh = -Infinity, prevLow = Infinity;
-    for (let j = i - period; j < i; j++) {
-      if (data[j].high > prevHigh) prevHigh = data[j].high;
-      if (data[j].low  < prevLow)  prevLow  = data[j].low;
-    }
-    const close = data[i].close;
-    const dateStr = toDate(data[i].time);
-
-    if (pos <= 0 && close > prevHigh) {
-      // Long Entry (K)
-      markers.push({ time: dateStr, position: "belowBar", color: "#ffffff", shape: "arrowUp", text: "K", size: 2 });
-      // Grüne Linie: K liegt ≥15% unter dem letzten S (Short Entry)
-      if (lastSPrice !== null && (lastSPrice - close) / lastSPrice >= 0.15) {
-        validBuyTimes.push(dateStr);
-      }
-      pos = 1;
-    } else if (pos >= 0 && close < prevLow) {
-      // Short Entry (S)
-      markers.push({ time: dateStr, position: "aboveBar", color: "#f0b90b", shape: "arrowDown", text: "S", size: 2 });
-      lastSPrice = close;
-      pos = -1;
-    }
-  }
-  return { markers, validBuyTimes };
-}
-
-function calcRSI(data, period = 14) {
-  const result = new Array(data.length).fill(null);
-  if (data.length < period + 1) return result;
-  let gains = 0, losses = 0;
-  for (let i = 1; i <= period; i++) {
-    const d = data[i].close - data[i - 1].close;
-    if (d >= 0) gains += d; else losses -= d;
-  }
-  let avgGain = gains / period, avgLoss = losses / period;
-  result[period] = avgLoss === 0 ? 100 : +(100 - 100 / (1 + avgGain / avgLoss)).toFixed(2);
-  for (let i = period + 1; i < data.length; i++) {
-    const d = data[i].close - data[i - 1].close;
-    const g = d > 0 ? d : 0, l = d < 0 ? -d : 0;
-    avgGain = (avgGain * (period - 1) + g) / period;
-    avgLoss = (avgLoss * (period - 1) + l) / period;
-    result[i] = avgLoss === 0 ? 100 : +(100 - 100 / (1 + avgGain / avgLoss)).toFixed(2);
-  }
-  return result;
-}
-
-// ═══════════════════════════════════════════════════════
-//  Chart-Setup
-// ═══════════════════════════════════════════════════════
-const chartOpts = {
-  layout: { background: { color: "#131722" }, textColor: "#787b86" },
-  grid: { vertLines: { color: "#1e222d" }, horzLines: { color: "#1e222d" } },
-  crosshair: { mode: LightweightCharts.CrosshairMode.Normal, vertLine: { color: "#758696", labelBackgroundColor: "#363c4e" }, horzLine: { color: "#758696", labelBackgroundColor: "#363c4e" } },
-  rightPriceScale: { borderColor: "#2a2e39", scaleMargins: { top: 0.06, bottom: 0.04 } },
-  timeScale: { borderColor: "#2a2e39", timeVisible: true, secondsVisible: false },
-  handleScroll: true,
-  handleScale: true,
-};
-
-let mainChart, candleSeries, volumeSeries;
-let turtleHighSeries, turtleMidSeries, turtleLowSeries;
-let sma20Series, sma50Series, sma100Series, sma200Series;
-
-let macdChart, macdLineSeries, macdSignalSeries, macdHistSeries;
-let rsiChart, rsiSeries, rsiOB, rsiOS;
-let priceLine15Long = null, priceLine15Short = null;
-
-function buildCharts() {
-  const mainWrap = document.getElementById("main-chart");
-  const mainHeight = mainWrap.parentElement.clientHeight;
-
-  // Haupt-Chart
-  mainChart = LightweightCharts.createChart(mainWrap, {
-    ...chartOpts,
-    width: mainWrap.clientWidth,
-    height: mainHeight,
-  });
-
-  candleSeries = mainChart.addCandlestickSeries({
-    upColor: "#26a69a", downColor: "#ef5350",
-    borderUpColor: "#26a69a", borderDownColor: "#ef5350",
-    wickUpColor: "#26a69a", wickDownColor: "#ef5350",
-  });
-
-  // Volumen
-  volumeSeries = mainChart.addHistogramSeries({
-    priceFormat: { type: "volume" },
-    priceScaleId: "vol",
-    color: "#26a69a",
-  });
-  mainChart.priceScale("vol").applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
-
-  // Turtle-Linien
-  turtleHighSeries = mainChart.addLineSeries({ color: "#26a69a", lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false });
-  turtleMidSeries = mainChart.addLineSeries({ color: "#d1d4dc", lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dotted, priceLineVisible: false, lastValueVisible: false });
-  turtleLowSeries = mainChart.addLineSeries({ color: "#ef5350", lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false });
-
-  // SMAs
-  sma20Series  = mainChart.addLineSeries({ color: "#f0b90b", lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false });
-  sma50Series  = mainChart.addLineSeries({ color: "#f0b90b", lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
-  sma100Series = mainChart.addLineSeries({ color: "#9c27b0", lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
-  sma200Series = mainChart.addLineSeries({ color: "#2196f3", lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
-
-  // Crosshair-Sync für OHLC-Bar
-  mainChart.subscribeCrosshairMove(updateOHLC);
-
-  // Linien bei Scroll/Zoom neu zeichnen
-  mainChart.timeScale().subscribeVisibleLogicalRangeChange(() => drawVerticalLines());
-}
-
-function buildSubCharts() {
-  const subDiv = document.getElementById("sub-charts");
-  subDiv.innerHTML = "";
-  macdChart = null; rsiChart = null;
-
-  const { macd: showMacd, rsi: showRsi } = state.indicators;
-  const total = (showMacd ? 1 : 0) + (showRsi && !state.indicators.turtle ? 1 : 0) + (showRsi && state.indicators.turtle ? 0 : 0);
-
-  // MACD
-  if (showMacd) {
-    const wrap = document.createElement("div");
-    wrap.className = "sub-wrap";
-    wrap.style.height = "130px";
-    wrap.innerHTML = `<div class="sub-label">MACD (12,26,9)</div>`;
-    const div = document.createElement("div");
-    div.className = "sub-chart";
-    div.style.height = "130px";
-    wrap.appendChild(div);
-    const rb = document.createElement("div");
-    rb.className = "resize-bar";
-    subDiv.appendChild(rb);
-    subDiv.appendChild(wrap);
-
-    macdChart = LightweightCharts.createChart(div, {
-      ...chartOpts,
-      width: div.clientWidth,
-      height: 130,
-      rightPriceScale: { borderColor: "#2a2e39", scaleMargins: { top: 0.1, bottom: 0.1 } },
-      timeScale: { visible: !showRsi || state.indicators.turtle },
-    });
-    macdHistSeries = macdChart.addHistogramSeries({ color: "#26a69a", priceLineVisible: false, lastValueVisible: false });
-    macdLineSeries = macdChart.addLineSeries({ color: "#2962ff", lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
-    macdSignalSeries = macdChart.addLineSeries({ color: "#ff6d00", lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
-
-    // Sync Zeitachse
-    mainChart.timeScale().subscribeVisibleLogicalRangeChange(r => {
-      if (r && macdChart) macdChart.timeScale().setVisibleLogicalRange(r);
-    });
-    macdChart.timeScale().subscribeVisibleLogicalRangeChange(r => {
-      if (r) mainChart.timeScale().setVisibleLogicalRange(r);
-    });
-  }
-
-  // RSI — nur wenn Turtle NICHT aktiv
-  const showRsiPanel = showRsi && !state.indicators.turtle;
-  if (showRsiPanel) {
-    const wrap = document.createElement("div");
-    wrap.className = "sub-wrap";
-    wrap.style.height = "110px";
-    wrap.innerHTML = `<div class="sub-label">RSI (14)</div>`;
-    const div = document.createElement("div");
-    div.className = "sub-chart";
-    div.style.height = "110px";
-    wrap.appendChild(div);
-    const rb = document.createElement("div");
-    rb.className = "resize-bar";
-    subDiv.appendChild(rb);
-    subDiv.appendChild(wrap);
-
-    rsiChart = LightweightCharts.createChart(div, {
-      ...chartOpts,
-      width: div.clientWidth,
-      height: 110,
-      rightPriceScale: { borderColor: "#2a2e39", scaleMargins: { top: 0.05, bottom: 0.05 } },
-    });
-    rsiSeries  = rsiChart.addLineSeries({ color: "#9c27b0", lineWidth: 1, priceLineVisible: false, lastValueVisible: true });
-    rsiOB = rsiChart.addLineSeries({ color: "#ef535030", lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false });
-    rsiOS = rsiChart.addLineSeries({ color: "#26a69a30", lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false });
-
-    mainChart.timeScale().subscribeVisibleLogicalRangeChange(r => {
-      if (r && rsiChart) rsiChart.timeScale().setVisibleLogicalRange(r);
-    });
-    if (rsiChart) rsiChart.timeScale().subscribeVisibleLogicalRangeChange(r => {
-      if (r) mainChart.timeScale().setVisibleLogicalRange(r);
-    });
-  }
-
-  if (macdChart && rsiChart) {
-    macdChart.timeScale().subscribeVisibleLogicalRangeChange(r => {
-      if (r && rsiChart) rsiChart.timeScale().setVisibleLogicalRange(r);
-    });
-  }
-
-  resizeAll();
-}
-
-// ═══════════════════════════════════════════════════════
-//  Daten laden & rendern
-// ═══════════════════════════════════════════════════════
-async function loadData() {
-  document.getElementById("ticker-input").value = state.symbol;
-  document.getElementById("name-input").value   = state.name;
-
-  const res = await fetch(`/api/history?symbol=${encodeURIComponent(state.symbol)}&range=${state.range}&interval=1d`);
-  if (!res.ok) { alert("Fehler beim Laden der Daten"); return; }
-  const { candles } = await res.json();
-  state.candles = candles;
-  renderAll();
-}
-
-function renderAll() {
-  const c = state.candles;
-  if (!c.length) return;
-
-  // Candlesticks (Datums-String als time-Format)
-  candleSeries.setData(c.map(d => ({
-    time: toDate(d.time), open: d.open, high: d.high, low: d.low, close: d.close
-  })));
-
-  // Turtle Entry/Exit Pfeile + übergeordnete Linien
-  if (state.indicators.turtle) {
-    const { markers, validBuyTimes } = calcTurtleSignals(c, 20);
-    markers.sort((a, b) => (a.time < b.time ? -1 : 1));
-    candleSeries.setMarkers(markers);
-    state.validBuyTimes = validBuyTimes;
-  } else {
-    candleSeries.setMarkers([]);
-    state.validBuyTimes = [];
-  }
-
-  // Volumen
-  volumeSeries.setData(c.map(d => ({
-    time: toDate(d.time),
-    value: d.volume,
-    color: d.close >= d.open ? "#26a69a55" : "#ef535055",
-  })));
-  applySeriesVisibility(volumeSeries, state.indicators.volume);
-
-  // Turtle
-  const turtle = calcTurtle(c, 20);
-  turtleHighSeries.setData(c.map((d, i) => ({ time: toDate(d.time), value: turtle.high[i] })).filter(d => d.value != null));
-  turtleMidSeries.setData(c.map((d, i) => ({ time: toDate(d.time), value: turtle.mid[i] })).filter(d => d.value != null));
-  turtleLowSeries.setData(c.map((d, i) => ({ time: toDate(d.time), value: turtle.low[i] })).filter(d => d.value != null));
-  applySeriesVisibility(turtleHighSeries, state.indicators.turtle);
-  applySeriesVisibility(turtleMidSeries, state.indicators.turtle);
-  applySeriesVisibility(turtleLowSeries, state.indicators.turtle);
-
-  // SMAs
-  const sma20  = calcSMA(c, 20);
-  const sma50  = calcSMA(c, 50);
-  const sma100 = calcSMA(c, 100);
-  const sma200 = calcSMA(c, 200);
-  sma20Series.setData(c.map((d,i) => ({ time: toDate(d.time), value: sma20[i] })).filter(d => d.value != null));
-  applySeriesVisibility(sma20Series, state.indicators.sma20);
-  sma50Series.setData(c.map((d,i) => ({ time: toDate(d.time), value: sma50[i] })).filter(d => d.value != null));
-  sma100Series.setData(c.map((d,i) => ({ time: toDate(d.time), value: sma100[i] })).filter(d => d.value != null));
-  sma200Series.setData(c.map((d,i) => ({ time: toDate(d.time), value: sma200[i] })).filter(d => d.value != null));
-  applySeriesVisibility(sma50Series, state.indicators.sma50);
-  applySeriesVisibility(sma100Series, state.indicators.sma100);
-  applySeriesVisibility(sma200Series, state.indicators.sma200);
-
-  // Sub-Charts
-  buildSubCharts();
-
-  if (state.indicators.macd && macdChart) {
-    const m = calcMACD(c);
-    macdHistSeries.setData(c.map((d,i) => ({
-      time: toDate(d.time),
-      value: m.histogram[i] ?? 0,
-      color: (m.histogram[i] ?? 0) >= 0 ? "#26a69a88" : "#ef535088",
-    })).filter(d => d.value !== undefined));
-    macdLineSeries.setData(c.map((d,i) => ({ time: toDate(d.time), value: m.macd[i] })).filter(d => d.value != null));
-    macdSignalSeries.setData(c.map((d,i) => ({ time: toDate(d.time), value: m.signal[i] })).filter(d => d.value != null));
-  }
-
-  if (rsiChart) {
-    const rsiVals = calcRSI(c, 14);
-    rsiSeries.setData(c.map((d,i) => ({ time: toDate(d.time), value: rsiVals[i] })).filter(d => d.value != null));
-    const times = c.map(d => toDate(d.time));
-    rsiOB.setData(times.map(t => ({ time: t, value: 70 })));
-    rsiOS.setData(times.map(t => ({ time: t, value: 30 })));
-  }
-
-  updateLegend();
-  updatePriceDisplay();
-  draw15Lines(c);
-  mainChart.timeScale().fitContent();
-  setTimeout(drawVerticalLines, 50);
-}
-
-function applySeriesVisibility(series, visible) {
-  series.applyOptions({ visible });
-}
-
-// ═══════════════════════════════════════════════════════
-//  Legende
-// ═══════════════════════════════════════════════════════
-function updateLegend() {
-  const leg = document.getElementById("legend");
-  leg.innerHTML = "";
-  const items = [];
-  if (state.indicators.turtle) {
-    items.push({ label: "Turtle 20 Hoch", color: "#26a69a" });
-    items.push({ label: "Turtle Mitte", color: "#d1d4dc" });
-    items.push({ label: "Turtle 20 Tief", color: "#ef5350" });
-  }
-  if (state.indicators.sma20)  items.push({ label: "SMA 20",  color: "#f0b90b" });
-  if (state.indicators.sma50)  items.push({ label: "SMA 50",  color: "#f0b90b" });
-  if (state.indicators.sma100) items.push({ label: "SMA 100", color: "#9c27b0" });
-  if (state.indicators.sma200) items.push({ label: "SMA 200", color: "#2196f3" });
-  leg.innerHTML = items.map(it =>
-    `<span class="leg-item" style="color:${it.color}">${it.label}</span>`
-  ).join("");
-}
-
-// ═══════════════════════════════════════════════════════
-//  Preis-Anzeige & OHLC-Bar
-// ═══════════════════════════════════════════════════════
-function updatePriceDisplay() {
-  const c = state.candles;
-  if (!c.length) return;
-  const last = c[c.length - 1];
-  const prev = c.length > 1 ? c[c.length - 2] : last;
-  const chg = last.close - prev.close;
-  const pct = (chg / prev.close * 100).toFixed(2);
-  const el = document.getElementById("current-price");
-  const ce = document.getElementById("price-change");
-  el.textContent = last.close.toFixed(2);
-  el.className = chg >= 0 ? "up" : "dn";
-  ce.textContent = `${chg >= 0 ? "+" : ""}${chg.toFixed(2)} (${chg >= 0 ? "+" : ""}${pct}%)`;
-  ce.className = chg >= 0 ? "up" : "dn";
-}
-
-function updateOHLC(param) {
-  if (!param.time) return;
-  const d = param.seriesData?.get(candleSeries);
-  if (!d) return;
-  const fmt = v => v?.toFixed(2) ?? "–";
-  document.getElementById("ohlc-o").textContent = `O ${fmt(d.open)}`;
-  document.getElementById("ohlc-h").textContent = `H ${fmt(d.high)}`;
-  document.getElementById("ohlc-l").textContent = `L ${fmt(d.low)}`;
-  document.getElementById("ohlc-c").textContent = `C ${fmt(d.close)}`;
-  // param.time ist jetzt ein 'YYYY-MM-DD' String
-  document.getElementById("ohlc-date").textContent = param.time ?? "";
-}
-
-// ═══════════════════════════════════════════════════════
-//  Resize
-// ═══════════════════════════════════════════════════════
-function resizeAll() {
-  const wrap = document.getElementById("main-chart");
-  const h = wrap.parentElement.clientHeight;
-  mainChart?.applyOptions({ width: wrap.clientWidth, height: h });
-
-  document.querySelectorAll(".sub-chart").forEach(el => {
-    const parent = el.parentElement;
-    const h2 = parseInt(parent.style.height) || 130;
-    const chart = el === document.querySelectorAll(".sub-chart")[0] ? macdChart : rsiChart;
-    chart?.applyOptions({ width: el.clientWidth, height: h2 });
-  });
-}
-
-window.addEventListener("resize", () => { resizeAll(); drawVerticalLines(); });
-
-// Weiße vertikale Linien für übergeordnete Kaufsignale
-function drawVerticalLines() {
-  const overlay = document.getElementById("vlines-overlay");
-  overlay.innerHTML = "";
-  if (!state.indicators.turtle || !state.candles.length) return;
-
-  const chartWidth = document.getElementById("main-chart").clientWidth;
-
-  for (const dateStr of state.validBuyTimes) {
-    const idx = state.candles.findIndex(c => toDate(c.time) === dateStr);
-    if (idx < 0) continue;
-    const x = mainChart.timeScale().logicalToCoordinate(idx);
-    if (x === null || x === undefined || x < 0 || x > chartWidth) continue;
-    const line = document.createElement("div");
-    // Grüne Linie: Long-Entry ≥15% unter Short-Entry
-    line.style.cssText = `position:absolute;top:0;bottom:0;left:${Math.round(x)}px;width:1px;background:#26a69a;opacity:0.6;z-index:99;`;
-    overlay.appendChild(line);
-  }
-}
-
-// ═══════════════════════════════════════════════════════
-//  Symbol-Suche
-// ═══════════════════════════════════════════════════════
-let allSymbols = [];
-
-async function loadSymbols() {
-  const res = await fetch("/api/symbols");
-  allSymbols = await res.json();
-}
-
-const tickerInput = document.getElementById("ticker-input");
-const nameInput   = document.getElementById("name-input");
-const dropdown    = document.getElementById("symbol-dropdown");
-
-function positionDropdown(inputEl, dropEl) {
-  const r = inputEl.getBoundingClientRect();
-  dropEl.style.top  = (r.bottom + 2) + "px";
-  dropEl.style.left = r.left + "px";
-  dropEl.style.width = Math.max(r.width, 380) + "px";
-}
-
-function onSymbolSelect(sym, name) {
-  state.symbol = sym; state.name = name;
-  tickerInput.value = sym;
-  nameInput.value   = name;
-  loadData();
-}
-
-function setupSymbolInput(input) {
-  input.addEventListener("focus", () => {
-    input.select();
-    positionDropdown(input, dropdown);
-    showDropdown("", dropdown, onSymbolSelect);
-  });
-  input.addEventListener("input", () => {
-    positionDropdown(input, dropdown);
-    showDropdown(input.value, dropdown, onSymbolSelect);
-  });
-  input.addEventListener("keydown", e => {
-    const items  = dropdown.querySelectorAll(".sym-item");
-    const active = dropdown.querySelector(".sym-item.sel");
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      const next = active ? active.nextElementSibling : items[0];
-      active?.classList.remove("sel");
-      next?.classList.add("sel");
-      next?.scrollIntoView({ block: "nearest" });
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      const prev = active ? active.previousElementSibling : items[items.length - 1];
-      active?.classList.remove("sel");
-      prev?.classList.add("sel");
-      prev?.scrollIntoView({ block: "nearest" });
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      const sel = dropdown.querySelector(".sym-item.sel") || dropdown.querySelector(".sym-item");
-      if (sel) { sel.click(); return; }
-      const raw = input.value.trim().toUpperCase();
-      if (raw) { state.symbol = raw; state.name = raw; dropdown.style.display = "none"; loadData(); }
-    } else if (e.key === "Escape") {
-      dropdown.style.display = "none";
-    }
-  });
-}
-
-setupSymbolInput(tickerInput);
-setupSymbolInput(nameInput);
-
-document.addEventListener("mousedown", e => {
-  if (!e.target.closest("#symbol-wrap") && !dropdown.contains(e.target))
-    dropdown.style.display = "none";
-});
-
-// Universelle Dropdown-Funktion (wird von Chart-Suche UND Merkliste genutzt)
-function showDropdown(query, dropEl, onSelect) {
-  const q = query.replace(/\s*–.*/, "").trim().toLowerCase();
-  const matches = q
-    ? allSymbols.filter(s =>
-        s.symbol.toLowerCase().includes(q) ||
-        s.name.toLowerCase().includes(q) ||
-        s.index.toLowerCase().includes(q)
-      ).slice(0, 60)
-    : allSymbols.slice(0, 60);
-
-  dropEl.innerHTML = matches.map(s =>
-    `<div class="sym-item" data-symbol="${s.symbol}" data-name="${s.name}">
-       <span class="sym-code">${s.symbol}</span>
-       <span>${s.name}</span>
-       <span class="sym-index">${s.index}</span>
-     </div>`
-  ).join("");
-
-  dropEl.querySelectorAll(".sym-item").forEach(el => {
-    el.addEventListener("mousedown", e => {
-      e.preventDefault(); // verhindert blur auf dem Input
-      dropEl.style.display = "none";
-      onSelect(el.dataset.symbol, el.dataset.name);
-    });
-  });
-
-  dropEl.style.display = matches.length ? "block" : "none";
-}
-
-// ═══════════════════════════════════════════════════════
-//  Zeitrahmen & Indikatoren
-// ═══════════════════════════════════════════════════════
-document.querySelectorAll(".tf-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".tf-btn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    state.range = btn.dataset.range;
-    loadData();
-  });
-});
-
-document.querySelectorAll(".ind-btn[data-ind]").forEach(btn => {
-  btn.addEventListener("click", () => {
-    const ind = btn.dataset.ind;
-    state.indicators[ind] = !state.indicators[ind];
-    btn.classList.toggle("active", state.indicators[ind]);
-
-    // RSI-Button-Beschriftung anpassen wenn Turtle aktiv
-    if (ind === "turtle" || ind === "rsi") {
-      updateRsiNote();
-    }
-
-    if (["macd", "rsi", "turtle"].includes(ind)) {
-      buildSubCharts();
-      if (state.candles.length) renderAll();
-    } else {
-      renderAll();
-    }
-  });
-});
-
-function updateRsiNote() {
-  const rsiBtn = document.querySelector('[data-ind="rsi"]');
-  if (state.indicators.turtle && state.indicators.rsi) {
-    rsiBtn.title = "RSI bei aktivem Turtle ausgeblendet";
-    rsiBtn.style.opacity = "0.5";
-  } else {
-    rsiBtn.title = "";
-    rsiBtn.style.opacity = "";
-  }
-}
-
-// ═══════════════════════════════════════════════════════
-//  Panel-Resize (horizontal)
-// ═══════════════════════════════════════════════════════
-(function setupPanelResize() {
-  const resizer = document.getElementById("panel-resize");
-  const panel = document.getElementById("claude-panel");
-  let startX, startW;
-  resizer.addEventListener("mousedown", e => {
-    startX = e.clientX;
-    startW = panel.getBoundingClientRect().width;
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", () => document.removeEventListener("mousemove", onMove), { once: true });
-  });
-  function onMove(e) {
-    const dx = startX - e.clientX;
-    const newW = Math.max(180, Math.min(500, startW + dx));
-    panel.style.width = newW + "px";
-    resizeAll();
-  }
-})();
-
-// ═══════════════════════════════════════════════════════
-//  Claude-Chat
-// ═══════════════════════════════════════════════════════
-const apiKeyInput = document.getElementById("api-key-input");
-const chatInput = document.getElementById("chat-input");
-const sendBtn = document.getElementById("send-btn");
-const chatMessages = document.getElementById("chat-messages");
-const statusDot = document.getElementById("status-dot");
-
-if (state.apiKey) apiKeyInput.value = state.apiKey;
-
-apiKeyInput.addEventListener("change", () => {
-  state.apiKey = apiKeyInput.value.trim();
-  localStorage.setItem("claudeApiKey", state.apiKey);
-});
-
-document.getElementById("context-btn").addEventListener("click", () => {
-  if (!state.candles.length) return;
-  const c = state.candles;
-  const last = c[c.length - 1];
-  const sma50 = calcSMA(c, 50);
-  const turtle = calcTurtle(c, 20);
-  const rsiVals = calcRSI(c, 14);
-  const context = `[Chart-Kontext: ${state.symbol} – ${state.name}]
-Zeitraum: ${state.range} | Kerzen: ${c.length}
-Letzter Kurs: ${last.close.toFixed(2)}
-Turtle 20 Hoch: ${turtle.high[c.length-1]?.toFixed(2) ?? "n/a"}
-Turtle Mitte: ${turtle.mid[c.length-1]?.toFixed(2) ?? "n/a"}
-Turtle 20 Tief: ${turtle.low[c.length-1]?.toFixed(2) ?? "n/a"}
-SMA 50: ${sma50[c.length-1]?.toFixed(2) ?? "n/a"}
-RSI(14): ${calcRSI(c,14)[c.length-1]?.toFixed(1) ?? "n/a"}`;
-  chatInput.value = (chatInput.value ? chatInput.value + "\n\n" : "") + context;
-  chatInput.focus();
-});
-
-chatInput.addEventListener("keydown", e => {
-  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) sendMessage();
-});
-
-sendBtn.addEventListener("click", sendMessage);
-
-function addMsg(role, text) {
-  const div = document.createElement("div");
-  div.className = `msg ${role}`;
-  div.textContent = text;
-  chatMessages.appendChild(div);
-  chatMessages.scrollTop = chatMessages.scrollHeight;
-  return div;
-}
-
-async function sendMessage() {
-  const text = chatInput.value.trim();
-  if (!text) return;
-  if (!state.apiKey) {
-    addMsg("system", "Bitte zuerst den Anthropic API Key eingeben.");
-    return;
-  }
-
-  chatInput.value = "";
-  sendBtn.disabled = true;
-  statusDot.className = "thinking";
-  addMsg("user", text);
-
-  state.chatHistory.push({ role: "user", content: text });
-
-  const systemPrompt = `Du bist ein Finanzanalyst-Assistent, spezialisiert auf europäische Aktien (STOXX 600).
-Antworte auf Deutsch, präzise und mit konkreten Zahlen.
-Aktuell analysiert: ${state.symbol} – ${state.name}, Zeitraum: ${state.range}.`;
-
-  try {
-    const res = await fetch("/api/claude", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        apiKey: state.apiKey,
-        system: systemPrompt,
-        messages: state.chatHistory.slice(-10),
-      }),
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(JSON.stringify(data.error));
-    const reply = data.text;
-    state.chatHistory.push({ role: "assistant", content: reply });
-    addMsg("assistant", reply);
-    if (data.usage) {
-      const t = document.createElement("div");
-      t.className = "msg-tokens";
-      t.textContent = `↑ ${data.usage.input_tokens} · ↓ ${data.usage.output_tokens} tokens`;
-      chatMessages.appendChild(t);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-    statusDot.className = "ok";
-  } catch (e) {
-    addMsg("system", `Fehler: ${e.message}`);
-    statusDot.className = "err";
-  } finally {
-    sendBtn.disabled = false;
-  }
-}
-
-// ═══════════════════════════════════════════════════════
-//  Tabs
-// ═══════════════════════════════════════════════════════
+// ── Tabs ─────────────────────────────────────────────────
 function switchTab(tab) {
-  document.querySelectorAll(".tab-btn").forEach(b =>
-    b.classList.toggle("active", b.getAttribute("onclick") === `switchTab('${tab}')`)
+  ['stoxx','wl'].forEach(t => {
+    document.getElementById('pane-' + t).classList.toggle('active', t === tab);
+  });
+  document.querySelectorAll('.tab-btn').forEach((b, i) =>
+    b.classList.toggle('active', ['stoxx','wl'][i] === tab)
   );
-  document.getElementById("main").style.display           = tab === "chart"     ? "flex" : "none";
-  document.getElementById("trades-view").style.display    = tab === "trades"    ? "flex" : "none";
-  document.getElementById("screener-view").style.display  = tab === "screener"  ? "flex" : "none";
-  document.getElementById("watchlist-view").style.display = tab === "watchlist" ? "flex" : "none";
-  if (tab === "screener")  loadScreener();
-  if (tab === "watchlist") renderWatchlist();
-  if (tab === "trades")    renderTrades();
 }
 
-// ═══════════════════════════════════════════════════════
-//  Screener
-// ═══════════════════════════════════════════════════════
-let screenerSort = { col: "returnPct", dir: -1 };
-
-async function loadScreener() {
-  const res = await fetch("/api/screener");
-  const data = await res.json();
-  renderScreener(data);
+// ── Scan ─────────────────────────────────────────────────
+async function runScan(which, testMode) {
+  const url = which === 'stoxx'
+    ? `/api/stoxx/run${testMode ? '?test=1' : ''}`
+    : '/api/watchlist/run';
+  const btnId = which === 'stoxx' ? 'btn-stoxx' : 'btn-wl';
+  document.getElementById(btnId).disabled = true;
+  if (which === 'stoxx') document.getElementById('btn-test').disabled = true;
+  await fetch(url, { method: 'POST' });
+  setRunningUI(which, true);
+  startPoll(which);
 }
 
-function renderScreener(data) {
-  const meta = document.getElementById("screener-meta");
-  if (!data.updatedAt) {
-    meta.textContent = 'Noch nicht gelaufen — klicke "Jetzt scannen"';
-    document.getElementById("screener-body").innerHTML = `<tr><td colspan="9" style="text-align:center;color:#787b86;padding:20px">Kein Ergebnis vorhanden</td></tr>`;
+function setRunningUI(which, running) {
+  const metaId = which === 'stoxx' ? 'stoxx-meta' : 'wl-meta';
+  const btnId  = which === 'stoxx' ? 'btn-stoxx' : 'btn-wl';
+  document.getElementById(btnId).disabled = running;
+  if (which === 'stoxx') document.getElementById('btn-test').disabled = running;
+  if (running)
+    document.getElementById(metaId).innerHTML = '<span class="pulse"></span>Scan läuft …';
+}
+
+function startPoll(which) {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    const url = which === 'stoxx' ? '/api/stoxx/status' : '/api/watchlist/status';
+    const { running } = await fetch(url).then(r => r.json());
+    if (!running) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+      loadResults(which);
+      document.getElementById(which === 'stoxx' ? 'btn-stoxx' : 'btn-wl').disabled = false;
+      if (which === 'stoxx') document.getElementById('btn-test').disabled = false;
+    }
+  }, 2000);
+}
+
+// ── Load Results ─────────────────────────────────────────
+async function loadResults(which) {
+  const url    = which === 'stoxx' ? '/api/stoxx' : '/api/watchlist/results';
+  const metaId = which === 'stoxx' ? 'stoxx-meta' : 'wl-meta';
+  const resId  = which === 'stoxx' ? 'res-stoxx'  : 'res-wl';
+  const data   = await fetch(url).then(r => r.json());
+  const hits   = data.results || [];
+
+  const date     = data.updatedAt ? new Date(data.updatedAt).toLocaleString('de-DE') : null;
+  const schedule = which === 'stoxx' ? ' · Di + Fr 20:00' : ' · manuell';
+  document.getElementById(metaId).textContent = date
+    ? `Letzter Scan: ${date}${schedule} · ${data.found} Treffer von ${data.total}`
+    : `Noch kein Scan${schedule}`;
+
+  renderHits(resId, hits, which);
+}
+
+// ── Render ────────────────────────────────────────────────
+function renderHits(containerId, hits, which) {
+  const wrap = document.getElementById(containerId);
+  if (!hits.length) { wrap.innerHTML = '<div class="no-data">Keine Treffer.</div>'; return; }
+  wrap.innerHTML = hits.map(h => hitHTML(h, which)).join('');
+}
+
+function hitHTML(h, which) {
+  const last   = h.trades[h.trades.length - 1];
+  const isOpen = last?.open;
+  const dir    = last?.direction;
+  const bCls   = isOpen ? (dir === 'Long' ? 'bl' : 'bs') : 'bc';
+  const entryDate = last?.entryDate || '–';
+  const bTxt   = isOpen ? `${dir} offen · ${entryDate}` : `geschlossen · ${entryDate}`;
+  const sid    = safeId(h.symbol);
+  const inWL   = watchlist.some(s => s.symbol === h.symbol);
+
+  const addBtn = which === 'stoxx'
+    ? `<button class="wl-btn${inWL ? ' inWL' : ''}" id="wlb-${sid}"
+         onclick="event.stopPropagation();addFromStoxx('${esc(h.symbol)}','${esc(h.name)}','${esc(h.index)}')"
+       >${inWL ? '✓ WL' : '+ WL'}</button>`
+    : `<button class="wl-btn" style="color:#ef5350;border-color:#ef535033"
+         onclick="event.stopPropagation();removeTicker('${esc(h.symbol)}')"
+       >✕</button>`;
+
+  const rows = h.trades.map(tradeRow).join('');
+
+  return `
+<div class="hit" id="hit-${sid}">
+  <div class="hit-hdr" onclick="toggleHit('${sid}')">
+    <span class="hit-sym">${h.symbol}</span>
+    <span class="hit-name">${h.name}</span>
+    <span class="hit-idx">${h.index}</span>
+    <span class="hit-badge ${bCls}">${bTxt}</span>
+    ${addBtn}
+    <span class="hit-arr">▼</span>
+  </div>
+  <div class="hit-body">
+    <table class="trade-tbl">
+      <thead><tr>
+        <th>Datum Einstieg</th><th>Datum Ausstieg</th>
+        <th>Long / Short</th><th>Einstiegskurs</th>
+        <th>Ausstiegskurs</th><th>Differenz %</th><th>Abstand Signal</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>
+</div>`;
+}
+
+function tradeRow(t) {
+  const exitDate  = t.exitDate  || `<span style="color:#26a69a">offen<span class="open-tag">läuft</span></span>`;
+  const exitPrice = t.exitPrice != null ? num(t.exitPrice) : '–';
+  const dCls = t.direction === 'Long' ? 'long' : 'short';
+  const profitable = t.direction === 'Long'
+    ? t.exitPrice > t.entryPrice
+    : t.exitPrice < t.entryPrice;
+  const pCls = profitable ? 'pos' : 'neg';
+  const sign = t.diffPct >= 0 ? '+' : '';
+  const dist = t.signalDist != null ? `+${t.signalDist} %` : '–';
+  return `<tr class="${t.open ? 'is-open' : ''}">
+    <td>${t.entryDate}</td>
+    <td>${exitDate}</td>
+    <td class="${dCls}">${t.direction}</td>
+    <td>${num(t.entryPrice)}</td>
+    <td>${exitPrice}</td>
+    <td class="${pCls}">${sign}${t.diffPct} %</td>
+    <td class="pos">${dist}</td>
+  </tr>`;
+}
+
+function num(n) {
+  return typeof n === 'number'
+    ? n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+    : n;
+}
+
+function toggleHit(id) {
+  document.getElementById('hit-' + id).classList.toggle('open');
+}
+
+function safeId(sym) { return sym.replace(/[^a-zA-Z0-9]/g, '-'); }
+function esc(s)      { return s.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+// ── Watchlist ─────────────────────────────────────────────
+async function loadWatchlist() {
+  watchlist = await fetch('/api/watchlist').then(r => r.json());
+  renderPills();
+}
+
+function renderPills() {
+  const wrap = document.getElementById('wl-pills');
+  if (!watchlist.length) {
+    wrap.innerHTML = '<span class="wl-empty">Watchlist leer</span>';
     return;
   }
-  const at = new Date(data.updatedAt).toLocaleString("de-DE", { timeZone: "Europe/Berlin" });
-  meta.textContent = `${data.found} Signale von ${data.total} Werten | Stand: ${at}`;
+  wrap.innerHTML = watchlist.map(s =>
+    `<div class="pill">
+      <span class="pill-sym">${s.symbol}</span>
+      <span class="pill-name">${s.name}</span>
+      <button class="pill-rm" onclick="removeTicker('${esc(s.symbol)}')" title="Entfernen">×</button>
+    </div>`
+  ).join('');
+}
 
-  const rows = [...data.results].sort((a, b) => (a[screenerSort.col] > b[screenerSort.col] ? 1 : -1) * screenerSort.dir);
-  document.getElementById("screener-body").innerHTML = rows.map(r => `
-    <tr data-symbol="${r.symbol}" data-name="${r.name}">
-      <td style="color:#2962ff;font-weight:700">${r.symbol}</td>
-      <td>${r.name}</td>
-      <td><span class="idx-badge">${r.index}</span></td>
-      <td>${r.entryDate}</td>
-      <td>${r.entryPrice.toFixed(2)}</td>
-      <td>${r.currentPrice.toFixed(2)}</td>
-      <td class="${r.returnPct >= 0 ? "ret-pos" : "ret-neg"}">${r.returnPct >= 0 ? "+" : ""}${r.returnPct.toFixed(2)}%</td>
-      <td>${r.daysSince}T</td>
-      <td style="color:#26a69a;font-weight:600">${r.distFromS.toFixed(1)}%</td>
-    </tr>`).join("");
-
-  // Klick → Chart öffnen
-  document.querySelectorAll("#screener-body tr").forEach(row => {
-    row.addEventListener("click", () => {
-      state.symbol = row.dataset.symbol;
-      state.name = row.dataset.name;
-      switchTab("chart");
-      document.querySelectorAll(".tf-btn").forEach(b => b.classList.remove("active"));
-      document.querySelector('[data-range="2y"]').classList.add("active");
-      state.range = "2y";
-      loadData();
-    });
+async function addTicker() {
+  const inp = document.getElementById('wl-input');
+  const sym = inp.value.trim().toUpperCase();
+  if (!sym) return;
+  const st = document.getElementById('wl-status');
+  st.textContent = '…';
+  const r = await fetch('/api/watchlist/add', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ symbol: sym, name: sym, index: 'manuell' }),
   });
-}
-
-// Spalten sortieren
-document.querySelectorAll("#screener-table th").forEach(th => {
-  th.addEventListener("click", () => {
-    const col = th.dataset.col;
-    if (screenerSort.col === col) screenerSort.dir *= -1;
-    else { screenerSort.col = col; screenerSort.dir = -1; }
-    fetch("/api/screener").then(r => r.json()).then(renderScreener);
-  });
-});
-
-
-// ═══════════════════════════════════════════════════════
-//  Messwerkzeug
-// ═══════════════════════════════════════════════════════
-let measureActive = false;
-let measureDragging = false;
-let measureStart = null;
-
-const measureBtn = document.getElementById("measure-btn");
-const measureOverlay = document.getElementById("measure-overlay");
-const measureInfo = document.getElementById("measure-info");
-const measureCanvas = document.getElementById("measure-canvas");
-const mCtx = measureCanvas.getContext("2d");
-
-function resizeMeasureCanvas() {
-  const wrap = document.getElementById("main-chart-wrap");
-  measureCanvas.width = wrap.clientWidth;
-  measureCanvas.height = wrap.clientHeight;
-}
-
-function clearMeasure() {
-  mCtx.clearRect(0, 0, measureCanvas.width, measureCanvas.height);
-  measureInfo.style.display = "none";
-  measureStart = null;
-  measureDragging = false;
-}
-
-measureBtn.addEventListener("click", () => {
-  measureActive = !measureActive;
-  measureBtn.classList.toggle("active", measureActive);
-  if (measureActive) {
-    resizeMeasureCanvas();
-    measureOverlay.style.display = "block";
-    measureOverlay.style.cursor = "crosshair";
+  if (r.ok) {
+    inp.value = '';
+    st.textContent = `${sym} hinzugefügt`;
+    setTimeout(() => { st.textContent = ''; }, 2000);
+    await loadWatchlist();
   } else {
-    measureOverlay.style.display = "none";
-    clearMeasure();
-  }
-});
-
-document.addEventListener("keydown", e => {
-  if ((e.key === "m" || e.key === "M") && !e.target.closest("input,textarea")) measureBtn.click();
-  if (e.key === "Escape" && measureActive) measureBtn.click();
-});
-
-// Maus-Events direkt mit offsetX/Y (relativ zur Overlay-Ecke = Chart-Ecke)
-measureOverlay.addEventListener("mousedown", e => {
-  e.preventDefault();
-  measureDragging = true;
-  measureStart = { x: e.offsetX, y: e.offsetY };
-  clearMeasure();
-  measureStart = { x: e.offsetX, y: e.offsetY };
-});
-
-measureOverlay.addEventListener("mousemove", e => {
-  if (!measureDragging || !measureStart) return;
-  drawMeasure(measureStart, { x: e.offsetX, y: e.offsetY });
-});
-
-measureOverlay.addEventListener("mouseup", () => {
-  measureDragging = false;
-});
-
-function drawMeasure(start, end) {
-  // Canvas immer aktuell dimensionieren
-  const wrap = document.getElementById("main-chart-wrap");
-  if (measureCanvas.width !== wrap.offsetWidth)  measureCanvas.width  = wrap.offsetWidth;
-  if (measureCanvas.height !== wrap.offsetHeight) measureCanvas.height = wrap.offsetHeight;
-
-  const ctx = measureCanvas.getContext("2d");
-  ctx.clearRect(0, 0, measureCanvas.width, measureCanvas.height);
-
-  const x = Math.min(start.x, end.x), y = Math.min(start.y, end.y);
-  const w = Math.abs(end.x - start.x), h = Math.abs(end.y - start.y);
-  if (w < 3 && h < 3) return;
-
-  // Rechteck
-  ctx.fillStyle = "rgba(41,98,255,0.07)";
-  ctx.fillRect(x, y, w, h);
-  ctx.strokeStyle = "#2962ffaa";
-  ctx.lineWidth = 1;
-  ctx.setLineDash([4, 3]);
-  ctx.strokeRect(x, y, w, h);
-  ctx.setLineDash([]);
-
-  // Preis aus Chart-API
-  const p1 = candleSeries.coordinateToPrice(start.y);
-  const p2 = candleSeries.coordinateToPrice(end.y);
-  const t1 = mainChart.timeScale().coordinateToTime(start.x);
-  const t2 = mainChart.timeScale().coordinateToTime(end.x);
-
-  if (p1 == null || p2 == null) return;
-
-  const pDiff = p2 - p1;
-  const pPct  = (pDiff / Math.abs(p1)) * 100;
-  const sign  = pPct >= 0 ? "+" : "";
-  let days = "";
-  if (t1 && t2) {
-    try { days = "  " + Math.abs(Math.round((new Date(t2) - new Date(t1)) / 86400000)) + " Tage"; } catch {}
-  }
-
-  // Label neben dem Rechteck zeichnen
-  const label = `${sign}${pPct.toFixed(2)}%  ${sign}${pDiff.toFixed(2)}${days}`;
-  const lx = Math.min(end.x + 8, measureCanvas.width - label.length * 7);
-  const ly = Math.max(end.y - 4, 14);
-
-  ctx.font = "bold 12px monospace";
-  ctx.fillStyle = pPct >= 0 ? "#26a69a" : "#ef5350";
-  ctx.fillText(label, lx, ly);
-}
-
-window.addEventListener("resize", () => { resizeAll(); resizeMeasureCanvas(); drawVerticalLines(); });
-
-// ═══════════════════════════════════════════════════════
-//  15%-Referenzlinien im Chart
-// ═══════════════════════════════════════════════════════
-function draw15Lines(candles) {
-  // Alte Linien entfernen
-  try { if (priceLine15Long)  candleSeries.removePriceLine(priceLine15Long);  } catch {}
-  try { if (priceLine15Short) candleSeries.removePriceLine(priceLine15Short); } catch {}
-  priceLine15Long = null; priceLine15Short = null;
-
-  // Letztes K und S aus Trade-History ermitteln
-  let lastK = null, lastS = null;
-  const period = 20;
-  if (candles.length < period) return;
-  let pos = 0;
-  for (let i = period; i < candles.length; i++) {
-    let ph = -Infinity, pl = Infinity;
-    for (let j = i - period; j < i; j++) {
-      if (candles[j].high > ph) ph = candles[j].high;
-      if (candles[j].low  < pl) pl = candles[j].low;
-    }
-    const cl = candles[i].close;
-    if (pos <= 0 && cl > ph) { lastK = cl; pos =  1; }
-    else if (pos >= 0 && cl < pl) { lastS = cl; pos = -1; }
-  }
-
-  // Grüne Linie: Long-Entry 15%-Schwelle (letzter S × 0.85)
-  if (lastS != null) {
-    const lvl = +(lastS * 0.85).toFixed(2);
-    priceLine15Long = candleSeries.createPriceLine({
-      price: lvl,
-      color: "#26a69a",
-      lineWidth: 1,
-      lineStyle: LightweightCharts.LineStyle.Dashed,
-      axisLabelVisible: true,
-      title: `Long 15% (${lvl})`,
-    });
-  }
-
-  // Rote Linie: Short-Entry 15%-Schwelle (letzter K × 0.85)
-  if (lastK != null) {
-    const lvl = +(lastK * 0.85).toFixed(2);
-    priceLine15Short = candleSeries.createPriceLine({
-      price: lvl,
-      color: "#ef5350",
-      lineWidth: 1,
-      lineStyle: LightweightCharts.LineStyle.Dashed,
-      axisLabelVisible: true,
-      title: `Short 15% (${lvl})`,
-    });
+    st.textContent = 'Fehler';
   }
 }
 
-// ═══════════════════════════════════════════════════════
-//  Kaufsignale & Trades
-// ═══════════════════════════════════════════════════════
-// Berechnet ALLE Perioden: Long (K→S) und Short (S→K)
-// Abstand Long:  (letzterS - K) / letzterS  → negativ = K unter letztem S (günstiger Einstieg)
-// Abstand Short: (letzterK - S) / letzterK  → negativ = S unter letztem K (günstiger Short)
-function calcTradeHistory(candles, period = 20) {
-  const trades = [];
-  let pos = 0;
-  let lastKPrice = null;
-  let lastSPrice = null;
-  let openTrade  = null;
-
-  for (let i = period; i < candles.length; i++) {
-    let prevHigh = -Infinity, prevLow = Infinity;
-    for (let j = i - period; j < i; j++) {
-      if (candles[j].high > prevHigh) prevHigh = candles[j].high;
-      if (candles[j].low  < prevLow)  prevLow  = candles[j].low;
-    }
-    const close = candles[i].close;
-    const date  = toDate(candles[i].time);
-
-    if (pos <= 0 && close > prevHigh) {
-      // ── Long Entry (K) ──
-      // Schließe offenen Short-Trade
-      if (openTrade && openTrade.typ === "SHORT") {
-        openTrade.exitDate  = date;
-        openTrade.exitPrice = close;
-        trades.push({ ...openTrade });
-        openTrade = null;
-      }
-      // Abstand: wie weit K unter letztem S liegt (negativ = günstiger Long-Einstieg)
-      const dist    = lastSPrice != null ? (close - lastSPrice) / lastSPrice * 100 : null;
-      const isValid = dist != null && dist <= -15; // K ≥15% unter letztem S
-      openTrade = { typ: "LONG", entryDate: date, entryPrice: close, dist, isValid, exitDate: null, exitPrice: null, isOpen: false };
-      lastKPrice = close;
-      pos = 1;
-
-    } else if (pos >= 0 && close < prevLow) {
-      // ── Short Entry (S) ──
-      // Schließe offenen Long-Trade
-      if (openTrade && openTrade.typ === "LONG") {
-        openTrade.exitDate  = date;
-        openTrade.exitPrice = close;
-        trades.push({ ...openTrade });
-        openTrade = null;
-      }
-      // Abstand: wie weit S unter letztem K liegt (negativ = günstiger Short-Einstieg)
-      const dist    = lastKPrice != null ? (close - lastKPrice) / lastKPrice * 100 : null;
-      const isValid = dist != null && dist <= -15; // S ≥15% unter letztem K
-      openTrade = { typ: "SHORT", entryDate: date, entryPrice: close, dist, isValid, exitDate: null, exitPrice: null, isOpen: false };
-      lastSPrice = close;
-      pos = -1;
-    }
-  }
-
-  // Offene Position: aktueller Kurs als vorläufiger Ausstieg
-  if (openTrade) {
-    const last = candles[candles.length - 1];
-    openTrade.exitDate  = null;
-    openTrade.exitPrice = last.close;
-    openTrade.isOpen    = true;
-    trades.push(openTrade);
-  }
-  return trades;
-}
-
-function tradeReturn(t) {
-  if (t.typ === "LONG")  return (t.exitPrice - t.entryPrice) / t.entryPrice * 100;
-  if (t.typ === "SHORT") return (t.entryPrice - t.exitPrice) / t.entryPrice * 100;
-  return 0;
-}
-
-async function saveTrades(trades) {
-  await fetch(`/api/trades/${encodeURIComponent(state.symbol)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ symbol: state.symbol, name: state.name, savedAt: new Date().toISOString(), trades }),
+async function addFromStoxx(symbol, name, index) {
+  await fetch('/api/watchlist/add', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ symbol, name, index }),
   });
-  const btn = document.getElementById("trades-save-btn");
-  btn.textContent = "✓ Gespeichert";
-  setTimeout(() => { btn.textContent = "💾 Speichern"; }, 2000);
+  await loadWatchlist();
+  const btn = document.getElementById('wlb-' + safeId(symbol));
+  if (btn) { btn.textContent = '✓ WL'; btn.classList.add('inWL'); }
 }
 
-document.getElementById("trades-save-btn").addEventListener("click", () => {
-  if (!state.candles.length) return;
-  saveTrades(calcTradeHistory(state.candles));
-});
-
-function renderTrades() {
-  if (!state.candles.length) return;
-  const trades = calcTradeHistory(state.candles);
-
-  document.getElementById("ts-symbol").textContent = `${state.symbol} – ${state.name}`;
-
-  const closed   = trades.filter(t => !t.isOpen);
-  const returns  = closed.map(t => tradeReturn(t));
-  const wins     = returns.filter(r => r > 0);
-  const bigMoves = returns.filter(r => r >= 15);
-  const avgRet   = returns.length ? returns.reduce((a,b)=>a+b,0)/returns.length : null;
-  const validAll = trades.filter(t => t.isValid).length;
-  const longs    = trades.filter(t => t.typ === "LONG");
-  const shorts   = trades.filter(t => t.typ === "SHORT");
-
-  document.getElementById("ts-total").textContent  = `${longs.length}L / ${shorts.length}S`;
-  document.getElementById("ts-closed").textContent = closed.length;
-
-  const wr = document.getElementById("ts-winrate");
-  if (closed.length) {
-    wr.textContent = `${Math.round(wins.length / closed.length * 100)}%`;
-    wr.className   = "val " + (wins.length / closed.length >= 0.5 ? "up" : "dn");
-  } else { wr.textContent = "–"; wr.className = "val"; }
-
-  const av = document.getElementById("ts-avg");
-  if (avgRet != null) {
-    av.textContent = (avgRet >= 0 ? "+" : "") + avgRet.toFixed(2) + "%";
-    av.className   = "val " + (avgRet >= 0 ? "up" : "dn");
-  } else { av.textContent = "–"; av.className = "val"; }
-
-  document.getElementById("ts-big").textContent   = bigMoves.length;
-  document.getElementById("ts-valid").textContent = validAll;
-
-  const body = document.getElementById("trades-body");
-  body.innerHTML = trades.map((t, i) => {
-    const ret    = tradeReturn(t);
-    const retStr = (ret >= 0 ? "+" : "") + ret.toFixed(2) + "%";
-    const retCls = ret >= 0 ? "color:#26a69a;font-weight:700" : "color:#ef5350;font-weight:700";
-
-    // Abstand: negativ = günstiger Einstieg (K unter letztem S bzw. S unter letztem K)
-    const distVal = t.dist != null ? t.dist.toFixed(1) : null;
-    const distStr = distVal != null ? (t.dist > 0 ? "+" : "") + distVal + "%" : "–";
-    const distCls = t.isValid ? "color:#26a69a;font-weight:700"
-                  : t.dist != null && t.dist < 0 ? "color:#787b86" : "color:#4c5160";
-
-    const typHtml = t.typ === "LONG"
-      ? `<span style="color:#26a69a">▲ Long</span>`
-      : `<span style="color:#ef5350">▼ Short</span>`;
-    const validDot = t.isValid ? '<span class="trade-valid" title="Gultig (>=15%)"></span>' : '';
-
-    let statusHtml;
-    if (t.isOpen) {
-      statusHtml = `<span class="trade-status-active">aktiv</span>`;
-    } else if (ret >= 0) {
-      statusHtml = `<span class="trade-status-ok">✓</span>`;
-    } else {
-      statusHtml = `<span class="trade-status-err">✕</span>`;
-    }
-
-    return `<tr class="${t.isOpen ? "active-trade" : ""}">
-      <td style="color:#787b86">${i + 1}</td>
-      <td>${typHtml}</td>
-      <td>${validDot}${t.entryDate}</td>
-      <td>${t.entryPrice.toFixed(2)}</td>
-      <td>${t.exitDate ?? "–"}</td>
-      <td>${t.isOpen ? t.exitPrice.toFixed(2) + "*" : t.exitPrice.toFixed(2)}</td>
-      <td style="${retCls}">${retStr}${ret >= 15 ? " ●" : ""}</td>
-      <td style="${distCls}">${distStr}</td>
-      <td>${statusHtml}</td>
-    </tr>`;
-  }).join("");
+async function removeTicker(symbol) {
+  await fetch('/api/watchlist/' + encodeURIComponent(symbol), { method: 'DELETE' });
+  await loadWatchlist();
+  await Promise.all([loadResults('stoxx'), loadResults('wl')]);
 }
 
-// ═══════════════════════════════════════════════════════
-//  Merkliste
-// ═══════════════════════════════════════════════════════
-function loadWatchlist() {
-  try { return JSON.parse(localStorage.getItem("watchlist") || "[]"); } catch { return []; }
-}
-function saveWatchlist(list) {
-  localStorage.setItem("watchlist", JSON.stringify(list));
-}
-
-function renderWatchlist() {
-  const list = loadWatchlist();
-  const body = document.getElementById("watchlist-body");
-  if (!list.length) {
-    body.innerHTML = `<tr><td colspan="5"><div class="wl-empty">Noch keine Einträge — Symbol oben suchen und hinzufügen.</div></td></tr>`;
-    return;
-  }
-  body.innerHTML = list.map((item, i) => {
-    const sigHtml = item.signal
-      ? `<span class="wl-signal ${item.signal}">${item.signal === "hoch" ? "▲ Hoch" : "▼ Tief"}</span>`
-      : `<span style="color:#4c5160">–</span>`;
-    return `
-      <tr data-idx="${i}">
-        <td style="color:#2962ff;font-weight:700">${item.symbol}</td>
-        <td>${item.name}</td>
-        <td><span class="idx-badge">${item.index || "–"}</span></td>
-        <td>${sigHtml}</td>
-        <td><button class="wl-remove" data-idx="${i}">✕</button></td>
-      </tr>`;
-  }).join("");
-
-  // Chart öffnen per Klick
-  body.querySelectorAll("tr[data-idx]").forEach(row => {
-    row.addEventListener("click", e => {
-      if (e.target.classList.contains("wl-remove")) return;
-      const item = list[+row.dataset.idx];
-      state.symbol = item.symbol;
-      state.name = item.name;
-      switchTab("chart");
-      document.querySelectorAll(".tf-btn").forEach(b => b.classList.remove("active"));
-      document.querySelector('[data-range="2y"]').classList.add("active");
-      state.range = "2y";
-      loadData();
-    });
-  });
-
-  // Entfernen
-  body.querySelectorAll(".wl-remove").forEach(btn => {
-    btn.addEventListener("click", e => {
-      e.stopPropagation();
-      const list2 = loadWatchlist();
-      list2.splice(+btn.dataset.idx, 1);
-      saveWatchlist(list2);
-      renderWatchlist();
-    });
-  });
+// ── Init ─────────────────────────────────────────────────
+async function init() {
+  await loadWatchlist();
+  const [ss, ws] = await Promise.all([
+    fetch('/api/stoxx/status').then(r => r.json()),
+    fetch('/api/watchlist/status').then(r => r.json()),
+  ]);
+  if (ss.running) { setRunningUI('stoxx', true); startPoll('stoxx'); }
+  if (ws.running) { setRunningUI('wl',    true); startPoll('wl'); }
+  await Promise.all([loadResults('stoxx'), loadResults('wl')]);
 }
 
-// Merkliste-Suche
-const wlSearch = document.getElementById("watchlist-search");
-const wlResults = document.getElementById("watchlist-search-results");
-
-wlSearch.addEventListener("focus", () => {
-  positionDropdown(wlSearch, wlResults);
-  showDropdown("", wlResults, addToWatchlist);
-});
-wlSearch.addEventListener("input", () => {
-  positionDropdown(wlSearch, wlResults);
-  showDropdown(wlSearch.value, wlResults, addToWatchlist);
-});
-document.addEventListener("mousedown", e => {
-  if (!e.target.closest("#watchlist-search-bar") && !wlResults.contains(e.target))
-    wlResults.style.display = "none";
-});
-
-function addToWatchlist(symbol, name) {
-  const list = loadWatchlist();
-  if (list.find(i => i.symbol === symbol)) { wlSearch.value = ""; return; }
-  // Index aus allSymbols
-  const meta = allSymbols.find(s => s.symbol === symbol);
-  list.push({ symbol, name, index: meta?.index || "", signal: null });
-  saveWatchlist(list);
-  wlSearch.value = "";
-  renderWatchlist();
-}
-
-// ═══════════════════════════════════════════════════════
-//  Init
-// ═══════════════════════════════════════════════════════
-(async function init() {
-  buildCharts();
-  resizeMeasureCanvas();
-  await loadSymbols();
-  await loadData();
-})();
+init();
 </script>
 </body>
 </html>

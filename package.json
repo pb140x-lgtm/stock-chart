@@ -1,18 +1,14 @@
 {
   "name": "stock-chart",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "2.0.0",
+  "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "scan": "node scan.js"
+    "start": "node server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "type": "commonjs",
   "dependencies": {
     "express": "^5.3.0",
+    "node-cron": "^3.0.3",
     "node-fetch": "^2.7.0"
   }
 }
