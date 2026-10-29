@@ -20,8 +20,46 @@ const stoxx600 = JSON.parse(
   fs.readFileSync(path.join(__dirname, "symbols/stoxx600.json"), "utf8")
 );
 
+const fetch = require("node-fetch");
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
+
+// ── Chart History (OHLCV-Proxy) ────────────────────────────
+app.get("/api/history", async (req, res) => {
+  const { symbol, range = "1y" } = req.query;
+  if (!symbol) return res.status(400).json({ error: "symbol required" });
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}` +
+              `?range=${range}&interval=1d&includePrePost=false`;
+  try {
+    const r = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" },
+      timeout: 10000,
+    });
+    if (!r.ok) return res.status(502).json({ error: `Yahoo ${r.status}` });
+    const data   = await r.json();
+    const result = data?.chart?.result?.[0];
+    if (!result) return res.status(404).json({ error: "Keine Daten" });
+    const ts = result.timestamp;
+    const q  = result.indicators.quote[0];
+    const meta = result.meta || {};
+    const candles = [];
+    for (let i = 0; i < ts.length; i++) {
+      if (q.close[i] == null || q.open[i] == null) continue;
+      candles.push({
+        time:   ts[i],
+        open:   +q.open[i].toFixed(4),
+        high:   +q.high[i].toFixed(4),
+        low:    +q.low[i].toFixed(4),
+        close:  +q.close[i].toFixed(4),
+        volume: q.volume[i] || 0,
+      });
+    }
+    res.json({ symbol, name: meta.longName || meta.shortName || symbol, candles });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 function readJSON(file, fallback) {
   return fs.existsSync(file)

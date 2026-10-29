@@ -225,6 +225,7 @@ function hitHTML(h, which) {
     <span class="hit-idx">${h.index}</span>
     <span class="hit-badge ${bCls}">${bTxt}</span>
     ${addBtn}
+    <button class="wl-btn" onclick="event.stopPropagation();openChart('${esc(h.symbol)}')" title="Chart öffnen">⬜</button>
     <span class="hit-arr">▼</span>
   </div>
   <div class="hit-body">
@@ -271,6 +272,7 @@ function toggleHit(id) {
   document.getElementById('hit-' + id).classList.toggle('open');
 }
 
+function openChart(symbol) { window.open('/chart.html?symbol=' + encodeURIComponent(symbol), '_blank'); }
 function safeId(sym) { return sym.replace(/[^a-zA-Z0-9]/g, '-'); }
 function esc(s)      { return s.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
 
@@ -290,6 +292,7 @@ function renderPills() {
     `<div class="pill">
       <span class="pill-sym">${s.symbol}</span>
       <span class="pill-name">${s.name}</span>
+      <button class="pill-rm" onclick="openChart('${esc(s.symbol)}')" title="Chart" style="color:#2962ff">⬜</button>
       <button class="pill-rm" onclick="removeTicker('${esc(s.symbol)}')" title="Entfernen">×</button>
     </div>`
   ).join('');
