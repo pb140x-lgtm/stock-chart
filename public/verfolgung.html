@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verfolgung</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#eef1f5;color:#1a1a2e;font-family:'Trebuchet MS',sans-serif;min-height:100vh}
+
+/* Header */
+#hdr{background:#f0f4f8;border-bottom:1px solid #d0d7e2;padding:8px 14px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100}
+#hdr h1{font-size:14px;font-weight:700;color:#1a1a2e}
+.tab-btn{background:none;border:none;color:#5a6a7e;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600}
+.tab-btn:hover{color:#1a1a2e;background:#dde3ec}
+.btn{background:#ffffff;border:1px solid #c4cdd8;color:#1a1a2e;padding:4px 11px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600}
+.btn:hover:not(:disabled){border-color:#5a6a7e;background:#f0f4f8}
+.btn.primary{border-color:#1a56cc;color:#1a56cc}
+.btn.primary:hover{background:#e8f0fd}
+.btn.danger{border-color:#cc3333;color:#cc3333}
+.btn.danger:hover{background:#fdecea}
+.status-msg{font-size:11px;color:#1a7a5e;margin-left:8px}
+
+/* Content */
+#content{padding:14px}
+
+/* Table group */
+.tbl-group{margin-bottom:24px;border:1px solid #d0d7e2;border-radius:6px;overflow:hidden}
+.tbl-head{background:#f0f4f8;padding:8px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #d0d7e2}
+.tbl-name{font-size:13px;font-weight:700;color:#1a1a2e;cursor:pointer;min-width:120px;padding:2px 4px;border-radius:3px}
+.tbl-name:hover{background:#dde3ec}
+.tbl-name-edit{background:#ffffff;border:1px solid #1a56cc;color:#1a1a2e;font-size:13px;font-weight:700;padding:2px 6px;border-radius:3px;outline:none;min-width:160px}
+
+/* Security table */
+.sec-wrap{overflow-x:auto}
+table.sec-tbl{border-collapse:collapse;font-size:11px;white-space:nowrap;min-width:100%}
+table.sec-tbl td,table.sec-tbl th{padding:3px 7px;border-right:1px solid #e4e9f0}
+table.sec-tbl tr{border-bottom:1px solid #e4e9f0}
+table.sec-tbl tr.sep-row td{height:6px;background:#f7f9fc;border:none}
+
+/* Column types */
+.col-chart{width:82px;min-width:82px;text-align:center;padding:2px 4px}
+.col-sym{font-size:11px;font-weight:700;color:#1a1a2e;max-width:110px}
+.col-type{color:#7a8a9e;font-size:10px;width:52px}
+.col-stat{text-align:right;min-width:72px}
+.col-day{text-align:right;min-width:68px;color:#1a1a2e}
+.col-day.zero{color:#b0bac8}
+.col-date{text-align:right;min-width:68px;color:#8a9ab0;font-size:10px}
+
+/* Stat colours */
+.bg-max{background:#d6f0e0}
+.bg-min{background:#fde8e8}
+.txt-neg{color:#c0392b}
+.txt-pos{color:#1a7a5e}
+.txt-neutral{color:#7a8a9e}
+
+/* Header row */
+tr.date-hdr th{background:#f7f9fc;color:#8a9ab0;font-size:10px;font-weight:400;text-align:right;padding:3px 7px}
+tr.date-hdr th.col-chart{text-align:center}
+tr.date-hdr th.col-sym{color:#1a1a2e;font-size:11px;font-weight:700}
+tr.date-hdr th.col-type{text-align:left}
+tr.date-hdr th.col-stat{color:#5a6a7e;font-weight:600;font-size:10px;text-align:right}
+
+/* Add-security row */
+tr.add-row td{background:#f7f9fc;padding:5px 8px}
+
+/* Einstand input */
+input.einstand-inp{background:#ffffff;border:1px solid #1a56cc;color:#1a1a2e;width:72px;padding:1px 5px;border-radius:3px;font-size:11px;text-align:right;outline:none}
+
+/* Search dropdown */
+.search-wrap{position:relative;display:inline-block}
+input.sym-search{background:#ffffff;border:1px solid #c4cdd8;color:#1a1a2e;padding:3px 8px;border-radius:4px;font-size:11px;width:220px;outline:none}
+input.sym-search:focus{border-color:#1a56cc}
+input.sym-search::placeholder{color:#b0bac8}
+.sym-drop{position:absolute;top:100%;left:0;z-index:200;background:#ffffff;border:1px solid #d0d7e2;border-radius:4px;min-width:320px;max-height:200px;overflow-y:auto;display:none;box-shadow:0 4px 16px #0001a}
+.sym-drop.open{display:block}
+.sym-item{padding:6px 10px;cursor:pointer;font-size:11px;display:flex;gap:8px;align-items:baseline}
+.sym-item:hover{background:#f0f4f8}
+.sym-item .s-sym{font-weight:700;color:#1a56cc;min-width:90px}
+.sym-item .s-name{color:#1a1a2e;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sym-item .s-exch{color:#8a9ab0;font-size:10px;flex-shrink:0}
+.sym-loading{padding:6px 10px;color:#8a9ab0;font-size:11px}
+
+/* No-table placeholder */
+.empty-hint{color:#8a9ab0;font-size:12px;padding:20px 0}
+
+/* Update status */
+.update-badge{font-size:10px;color:#8a9ab0;margin-left:auto}
+</style>
+</head>
+<body>
+
+<div id="hdr">
+  <h1>Verfolgung</h1>
+  <a href="/" class="tab-btn">← Screener</a>
+  <button class="btn primary" onclick="newTable()">+ Neue Tabelle</button>
+  <button class="btn" onclick="manualUpdate()" id="btn-update" title="Alle Kurse jetzt aktualisieren">↻ Update</button>
+  <span class="status-msg" id="status"></span>
+</div>
+
+<div id="content">
+  <div class="empty-hint" id="empty-hint" style="display:none">Noch keine Tabelle angelegt. Klicke auf „+ Neue Tabelle".</div>
+  <div id="tables"></div>
+</div>
+
+<script>
+"use strict";
+
+let DB = { tables: [] };
+let searchTimer = null;
+
+// ── Init ──────────────────────────────────────────────────
+async function init() {
+  await loadTables();
+}
+
+async function loadTables() {
+  const data = await api("GET", "/api/verfolgung/tables");
+  DB = data;
+  render();
+}
+
+// ── Render ────────────────────────────────────────────────
+function render() {
+  const wrap = document.getElementById("tables");
+  const hint = document.getElementById("empty-hint");
+  if (!DB.tables.length) { hint.style.display = ""; wrap.innerHTML = ""; return; }
+  hint.style.display = "none";
+  wrap.innerHTML = DB.tables.map(t => renderTable(t)).join("");
+}
+
+function renderTable(t) {
+  const rows = t.securities.map(sec => renderSecRows(t.id, sec)).join("");
+  const addRow = `<tr class="add-row"><td colspan="100">
+    <div class="search-wrap" id="sw-${t.id}">
+      <input class="sym-search" id="si-${t.id}" placeholder="Symbol suchen, z.B. ALV oder XETRA:ALV"
+        oninput="onSearch('${t.id}')" onkeydown="onSearchKey(event,'${t.id}')">
+      <div class="sym-drop" id="sd-${t.id}"></div>
+    </div>
+    <span class="status-msg" id="add-st-${t.id}"></span>
+  </td></tr>`;
+
+  return `<div class="tbl-group" id="tg-${t.id}">
+  <div class="tbl-head">
+    <span class="tbl-name" id="tn-${t.id}" ondblclick="startRename('${t.id}')">${esc(t.name)}</span>
+    <span class="update-badge" id="ub-${t.id}"></span>
+    <button class="btn danger" style="font-size:10px;padding:2px 8px" onclick="delTable('${t.id}')">✕ Tabelle</button>
+  </div>
+  <div class="sec-wrap">
+    <table class="sec-tbl" id="st-${t.id}">
+      ${rows}
+      ${addRow}
+    </table>
+  </div>
+</div>`;
+}
+
+function renderSecRows(tid, sec) {
+  const s   = sec.stats || {};
+  const d   = sec.data  || [];
+  const sym = encodeURIComponent(sec.yahooSymbol);
+
+  // Sparklines from data (data[0]=newest → reverse for chart)
+  const closes  = d.map(x => x.close);
+  const volumes = d.map(x => x.volume);
+  const priceSvg = lineSpark(closes.slice().reverse(), 78, 28, "#2962ff");
+  const volSvg   = barSpark(volumes.slice().reverse(),  78, 28, "#364f6b");
+
+  // Date header cells
+  const dateCells = d.map(x =>
+    `<th class="col-date">${fmtDate(x.date)}</th>`
+  ).join("");
+
+  // Price cells
+  const priceCells = d.map((x, i) => {
+    const bgCls = i === s.maxCloseIdx ? "bg-max" : i === s.minCloseIdx ? "bg-min" : "";
+    const zeroCls = x.close === 0 ? " zero" : "";
+    return `<td class="col-day${zeroCls} ${bgCls}">${x.close === 0 ? "0" : fmtNum(x.close)}</td>`;
+  }).join("");
+
+  // Volume cells
+  const volCells = d.map((x, i) => {
+    const bgCls = i === s.maxVolIdx ? "bg-max" : i === s.minVolIdx ? "bg-min" : "";
+    const zeroCls = x.volume === 0 ? " zero" : "";
+    return `<td class="col-day${zeroCls} ${bgCls}">${x.volume === 0 ? "0" : fmtVol(x.volume)}</td>`;
+  }).join("");
+
+  // Einstand display
+  const ewVal  = sec.einstand > 0 ? fmtNum(sec.einstand) : "–";
+  const ewDevCls = s.einstandDev > 0 ? "txt-pos" : s.einstandDev < 0 ? "txt-neg" : "txt-neutral";
+  const ewDev  = sec.einstand > 0 ? `<span class="${ewDevCls}">${s.einstandDev > 0 ? "+" : ""}${s.einstandDev} %</span>` : "0";
+
+  const closeDevCls = s.closeDev <= 0 ? "txt-neg" : "txt-pos";
+  const volDevCls   = s.volDev   <= 0 ? "txt-neg" : "txt-pos";
+
+  return `
+<tr class="date-hdr">
+  <th class="col-chart">Kurs</th>
+  <th class="col-chart">Volumen</th>
+  <th class="col-sym">${esc(sec.displayName)}</th>
+  <th class="col-type"></th>
+  <th class="col-stat">Max</th>
+  <th class="col-stat">Min</th>
+  <th class="col-stat">Abw %</th>
+  <th class="col-stat">Einstand</th>
+  <th class="col-stat">Abw %</th>
+  ${dateCells}
+  <th style="min-width:28px"></th>
+</tr>
+<tr>
+  <td class="col-chart">${priceSvg}</td>
+  <td class="col-chart"></td>
+  <td class="col-sym" style="font-size:10px;color:#787b86">${esc(sec.tvSymbol)}</td>
+  <td class="col-type">Preis</td>
+  <td class="col-stat bg-max">${fmtNum(s.maxClose)}</td>
+  <td class="col-stat bg-min">${fmtNum(s.minClose)}</td>
+  <td class="col-stat ${closeDevCls}">${s.closeDev} %</td>
+  <td class="col-stat" style="cursor:pointer" onclick="editEinstand('${tid}','${sym}',this)"
+      data-yw="${sec.yahooSymbol}" data-val="${sec.einstand}">${ewVal}</td>
+  <td class="col-stat">${ewDev}</td>
+  ${priceCells}
+  <td style="text-align:center"><button class="btn danger" style="padding:1px 6px;font-size:10px"
+    onclick="delSec('${tid}','${sym}')">✕</button></td>
+</tr>
+<tr>
+  <td class="col-chart"></td>
+  <td class="col-chart">${volSvg}</td>
+  <td></td>
+  <td class="col-type">Volumen</td>
+  <td class="col-stat bg-max">${fmtVol(s.maxVol)}</td>
+  <td class="col-stat bg-min">${fmtVol(s.minVol)}</td>
+  <td class="col-stat ${volDevCls}">${s.volDev} %</td>
+  <td class="col-stat"></td>
+  <td class="col-stat"></td>
+  ${volCells}
+  <td></td>
+</tr>
+<tr class="sep-row"><td colspan="100"></td></tr>`;
+}
+
+// ── Sparklines ────────────────────────────────────────────
+function lineSpark(vals, w, h, color) {
+  const valid = vals.filter(v => v > 0);
+  if (!valid.length) return `<svg width="${w}" height="${h}"></svg>`;
+  const min = Math.min(...valid);
+  const max = Math.max(...valid);
+  const rng = max - min || 1;
+  const pts = vals.map((v, i) => {
+    const x = vals.length > 1 ? (i / (vals.length - 1)) * w : w / 2;
+    const y = v === 0 ? h : h - ((v - min) / rng) * (h - 2) - 1;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  return `<svg width="${w}" height="${h}" style="display:block">
+    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round"/>
+  </svg>`;
+}
+
+function barSpark(vals, w, h, color) {
+  const max = Math.max(...vals) || 1;
+  const bw  = w / vals.length;
+  const bars = vals.map((v, i) => {
+    const bh = (v / max) * h;
+    return `<rect x="${(i * bw + 0.5).toFixed(1)}" y="${(h - bh).toFixed(1)}" width="${(bw - 1).toFixed(1)}" height="${bh.toFixed(1)}" fill="${color}"/>`;
+  }).join("");
+  return `<svg width="${w}" height="${h}" style="display:block">${bars}</svg>`;
+}
+
+// ── Table CRUD ────────────────────────────────────────────
+async function newTable() {
+  const name = prompt("Name der neuen Tabelle:");
+  if (!name) return;
+  await api("POST", "/api/verfolgung/tables", { name });
+  await loadTables();
+}
+
+async function delTable(tid) {
+  if (!confirm("Tabelle wirklich löschen?")) return;
+  await api("DELETE", `/api/verfolgung/tables/${tid}`);
+  await loadTables();
+}
+
+function startRename(tid) {
+  const span = document.getElementById("tn-" + tid);
+  const cur  = span.textContent;
+  const inp  = document.createElement("input");
+  inp.className = "tbl-name-edit";
+  inp.value = cur;
+  span.replaceWith(inp);
+  inp.focus();
+  inp.select();
+  const done = async () => {
+    const val = inp.value.trim() || cur;
+    await api("PUT", `/api/verfolgung/tables/${tid}`, { name: val });
+    await loadTables();
+  };
+  inp.onblur  = done;
+  inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); inp.blur(); } if (e.key === "Escape") { inp.value = cur; inp.blur(); } };
+}
+
+// ── Symbol search ─────────────────────────────────────────
+function onSearch(tid) {
+  clearTimeout(searchTimer);
+  const q = document.getElementById("si-" + tid).value.trim();
+  if (q.length < 1) { closeDropdown(tid); return; }
+  searchTimer = setTimeout(() => doSearch(tid, q), 320);
+}
+
+async function doSearch(tid, q) {
+  const drop = document.getElementById("sd-" + tid);
+  drop.innerHTML = '<div class="sym-loading">Suche …</div>';
+  drop.classList.add("open");
+  try {
+    const results = await api("GET", `/api/verfolgung/search?q=${encodeURIComponent(q)}`);
+    if (!results.length) { drop.innerHTML = '<div class="sym-loading">Keine Treffer</div>'; return; }
+    drop.innerHTML = results.map(r =>
+      `<div class="sym-item" onclick="selectSymbol('${tid}','${esc2(r.tvSymbol)}','${esc2(r.name)}')">
+        <span class="s-sym">${r.tvSymbol}</span>
+        <span class="s-name">${r.name}</span>
+        <span class="s-exch">${r.exchange}${r.country ? ' · ' + r.country : ''}</span>
+      </div>`
+    ).join("");
+  } catch { drop.innerHTML = '<div class="sym-loading">Fehler bei der Suche</div>'; }
+}
+
+function onSearchKey(e, tid) {
+  if (e.key === "Escape") closeDropdown(tid);
+}
+
+function closeDropdown(tid) {
+  const drop = document.getElementById("sd-" + tid);
+  if (drop) { drop.classList.remove("open"); drop.innerHTML = ""; }
+}
+
+async function selectSymbol(tid, tvSymbol, displayName) {
+  closeDropdown(tid);
+  const inp = document.getElementById("si-" + tid);
+  inp.value = "";
+  const st = document.getElementById("add-st-" + tid);
+  st.textContent = `${tvSymbol} wird geladen …`;
+  try {
+    const r = await api("POST", `/api/verfolgung/tables/${tid}/securities`, { tvSymbol, displayName });
+    if (r.error) { st.textContent = r.error === "already exists" ? "Bereits vorhanden" : r.error; }
+    else { st.textContent = `${displayName} hinzugefügt`; setTimeout(() => { st.textContent = ""; }, 3000); await loadTables(); }
+  } catch (e) { st.textContent = "Fehler: " + e.message; }
+}
+
+// ── Security remove ───────────────────────────────────────
+async function delSec(tid, sym) {
+  if (!confirm("Papier entfernen?")) return;
+  await api("DELETE", `/api/verfolgung/tables/${tid}/securities/${sym}`);
+  await loadTables();
+}
+
+// ── Einstand edit ─────────────────────────────────────────
+function editEinstand(tid, sym, cell) {
+  const cur = parseFloat(cell.dataset.val) || 0;
+  const inp = document.createElement("input");
+  inp.className = "einstand-inp";
+  inp.type = "number";
+  inp.step = "0.01";
+  inp.value = cur || "";
+  inp.placeholder = "0.00";
+  cell.innerHTML = "";
+  cell.appendChild(inp);
+  inp.focus();
+  const save = async () => {
+    const val = parseFloat(inp.value) || 0;
+    try {
+      const r = await api("PUT", `/api/verfolgung/tables/${tid}/securities/${sym}/einstand`, { einstand: val });
+      await loadTables();
+    } catch { await loadTables(); }
+  };
+  inp.onblur   = save;
+  inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); inp.blur(); } if (e.key === "Escape") { loadTables(); } };
+}
+
+// ── Manual update ─────────────────────────────────────────
+async function manualUpdate() {
+  const btn = document.getElementById("btn-update");
+  const st  = document.getElementById("status");
+  btn.disabled = true;
+  st.textContent = "Aktualisiere …";
+  try {
+    const r = await api("POST", "/api/verfolgung/update");
+    st.textContent = `${r.updated} Einträge aktualisiert`;
+    await loadTables();
+  } catch (e) { st.textContent = "Fehler: " + e.message; }
+  finally { btn.disabled = false; setTimeout(() => { st.textContent = ""; }, 4000); }
+}
+
+// ── Helpers ───────────────────────────────────────────────
+async function api(method, url, body) {
+  const opts = { method, headers: { "Content-Type": "application/json" } };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(url, opts);
+  return r.json();
+}
+
+function fmtNum(n) {
+  if (n == null || n === 0) return "0";
+  return n.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+}
+
+function fmtVol(n) {
+  if (!n) return "0";
+  if (n >= 1e6) return (n / 1e6).toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 2 }) + " M";
+  if (n >= 1e3) return (n / 1e3).toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 1 }) + " k";
+  return n.toLocaleString("de-DE");
+}
+
+function fmtDate(s) {
+  if (!s) return "";
+  const [y, m, d] = s.split("-");
+  return `${d}.${m}.`;
+}
+
+function esc(s)  { return String(s).replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function esc2(s) { return String(s).replace(/'/g,"\\'").replace(/"/g,"&quot;"); }
+
+// Close dropdown on outside click
+document.addEventListener("click", e => {
+  if (!e.target.closest(".search-wrap")) {
+    document.querySelectorAll(".sym-drop.open").forEach(d => d.classList.remove("open"));
+  }
+});
+
+init();
+</script>
+</body>
+</html>

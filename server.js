@@ -3,7 +3,8 @@ const express = require("express");
 const path    = require("path");
 const fs      = require("fs");
 const cron    = require("node-cron");
-const { runScreener } = require("./screener-trades");
+const { runScreener }              = require("./screener-trades");
+const { registerRoutes, dailyUpdate } = require("./verfolgung");
 
 const app  = express();
 const PORT = 3000;
@@ -132,6 +133,9 @@ app.post("/api/watchlist/run", (_req, res) => {
     .finally(() => { watchlistRunning = false; });
 });
 
+// ── Verfolgung ─────────────────────────────────────────────
+registerRoutes(app);
+
 // ── Cron-Scheduling ────────────────────────────────────────
 // STOXX 600: Dienstag (2) + Freitag (5) um 20:00
 cron.schedule("0 20 * * 2,5", () => {
@@ -141,6 +145,12 @@ cron.schedule("0 20 * * 2,5", () => {
   runScreener(stoxx600, STOXX_FILE)
     .catch(e => console.error("[Cron STOXX]", e))
     .finally(() => { stoxxRunning = false; });
+});
+
+// Verfolgung: Mo–Fr 23:05
+cron.schedule("5 23 * * 1-5", () => {
+  console.log("[Cron] Verfolgung Daily Update …");
+  dailyUpdate().catch(e => console.error("[Cron Verfolgung]", e));
 });
 
 app.listen(PORT, () => console.log(`[Server] http://localhost:${PORT}`));
