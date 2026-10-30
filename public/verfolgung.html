@@ -67,19 +67,10 @@ tr.add-row td{background:#f7f9fc;padding:5px 8px}
 /* Einstand input */
 input.einstand-inp{background:#ffffff;border:1px solid #1a56cc;color:#1a1a2e;width:72px;padding:1px 5px;border-radius:3px;font-size:11px;text-align:right;outline:none}
 
-/* Search dropdown */
-.search-wrap{position:relative;display:inline-block}
-input.sym-search{background:#ffffff;border:1px solid #c4cdd8;color:#1a1a2e;padding:3px 8px;border-radius:4px;font-size:11px;width:220px;outline:none}
-input.sym-search:focus{border-color:#1a56cc}
-input.sym-search::placeholder{color:#b0bac8}
-.sym-drop{position:absolute;top:100%;left:0;z-index:200;background:#ffffff;border:1px solid #d0d7e2;border-radius:4px;min-width:320px;max-height:200px;overflow-y:auto;display:none;box-shadow:0 4px 16px #0001a}
-.sym-drop.open{display:block}
-.sym-item{padding:6px 10px;cursor:pointer;font-size:11px;display:flex;gap:8px;align-items:baseline}
-.sym-item:hover{background:#f0f4f8}
-.sym-item .s-sym{font-weight:700;color:#1a56cc;min-width:90px}
-.sym-item .s-name{color:#1a1a2e;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sym-item .s-exch{color:#8a9ab0;font-size:10px;flex-shrink:0}
-.sym-loading{padding:6px 10px;color:#8a9ab0;font-size:11px}
+/* Add security row */
+input.sym-inp{background:#ffffff;border:1px solid #c4cdd8;color:#1a1a2e;padding:3px 8px;border-radius:4px;font-size:11px;width:160px;outline:none}
+input.sym-inp:focus{border-color:#1a56cc}
+input.sym-inp::placeholder{color:#b0bac8}
 
 /* No-table placeholder */
 .empty-hint{color:#8a9ab0;font-size:12px;padding:20px 0}
@@ -107,7 +98,6 @@ input.sym-search::placeholder{color:#b0bac8}
 "use strict";
 
 let DB = { tables: [] };
-let searchTimer = null;
 
 // ── Init ──────────────────────────────────────────────────
 async function init() {
@@ -132,11 +122,9 @@ function render() {
 function renderTable(t) {
   const rows = t.securities.map(sec => renderSecRows(t.id, sec)).join("");
   const addRow = `<tr class="add-row"><td colspan="100">
-    <div class="search-wrap" id="sw-${t.id}">
-      <input class="sym-search" id="si-${t.id}" placeholder="Symbol suchen, z.B. ALV oder XETRA:ALV"
-        oninput="onSearch('${t.id}')" onkeydown="onSearchKey(event,'${t.id}')">
-      <div class="sym-drop" id="sd-${t.id}"></div>
-    </div>
+    <input class="sym-inp" id="si-${t.id}" placeholder="Yahoo-Kürzel, z.B. PGHN.SW"
+      onkeydown="onAddKey(event,'${t.id}')">
+    <button class="btn primary" style="margin-left:6px" onclick="addSymbol('${t.id}')">+</button>
     <span class="status-msg" id="add-st-${t.id}"></span>
   </td></tr>`;
 
@@ -210,7 +198,7 @@ function renderSecRows(tid, sec) {
 <tr>
   <td class="col-chart">${priceSvg}</td>
   <td class="col-chart"></td>
-  <td class="col-sym" style="font-size:10px;color:#787b86">${esc(sec.tvSymbol)}</td>
+  <td class="col-sym" style="font-size:10px;color:#787b86">${esc(sec.yahooSymbol)}</td>
   <td class="col-type">Preis</td>
   <td class="col-stat bg-max">${fmtNum(s.maxClose)}</td>
   <td class="col-stat bg-min">${fmtNum(s.minClose)}</td>
@@ -297,50 +285,27 @@ function startRename(tid) {
   inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); inp.blur(); } if (e.key === "Escape") { inp.value = cur; inp.blur(); } };
 }
 
-// ── Symbol search ─────────────────────────────────────────
-function onSearch(tid) {
-  clearTimeout(searchTimer);
-  const q = document.getElementById("si-" + tid).value.trim();
-  if (q.length < 1) { closeDropdown(tid); return; }
-  searchTimer = setTimeout(() => doSearch(tid, q), 320);
+// ── Symbol hinzufügen ──────────────────────────────────────
+function onAddKey(e, tid) {
+  if (e.key === "Enter") { e.preventDefault(); addSymbol(tid); }
 }
 
-async function doSearch(tid, q) {
-  const drop = document.getElementById("sd-" + tid);
-  drop.innerHTML = '<div class="sym-loading">Suche …</div>';
-  drop.classList.add("open");
-  try {
-    const results = await api("GET", `/api/verfolgung/search?q=${encodeURIComponent(q)}`);
-    if (!results.length) { drop.innerHTML = '<div class="sym-loading">Keine Treffer</div>'; return; }
-    drop.innerHTML = results.map(r =>
-      `<div class="sym-item" onclick="selectSymbol('${tid}','${esc2(r.tvSymbol)}','${esc2(r.name)}')">
-        <span class="s-sym">${r.tvSymbol}</span>
-        <span class="s-name">${r.name}</span>
-        <span class="s-exch">${r.exchange}${r.country ? ' · ' + r.country : ''}</span>
-      </div>`
-    ).join("");
-  } catch { drop.innerHTML = '<div class="sym-loading">Fehler bei der Suche</div>'; }
-}
-
-function onSearchKey(e, tid) {
-  if (e.key === "Escape") closeDropdown(tid);
-}
-
-function closeDropdown(tid) {
-  const drop = document.getElementById("sd-" + tid);
-  if (drop) { drop.classList.remove("open"); drop.innerHTML = ""; }
-}
-
-async function selectSymbol(tid, tvSymbol, displayName) {
-  closeDropdown(tid);
+async function addSymbol(tid) {
   const inp = document.getElementById("si-" + tid);
-  inp.value = "";
+  const yahooSymbol = inp.value.trim().toUpperCase();
+  if (!yahooSymbol) return;
   const st = document.getElementById("add-st-" + tid);
-  st.textContent = `${tvSymbol} wird geladen …`;
+  st.textContent = `${yahooSymbol} wird geladen …`;
   try {
-    const r = await api("POST", `/api/verfolgung/tables/${tid}/securities`, { tvSymbol, displayName });
-    if (r.error) { st.textContent = r.error === "already exists" ? "Bereits vorhanden" : r.error; }
-    else { st.textContent = `${displayName} hinzugefügt`; setTimeout(() => { st.textContent = ""; }, 3000); await loadTables(); }
+    const r = await api("POST", `/api/verfolgung/tables/${tid}/securities`, { yahooSymbol });
+    if (r.error) {
+      st.textContent = r.error === "already exists" ? "Bereits vorhanden" : r.error;
+    } else {
+      inp.value = "";
+      st.textContent = `${r.displayName || yahooSymbol} hinzugefügt`;
+      setTimeout(() => { st.textContent = ""; }, 3000);
+      await loadTables();
+    }
   } catch (e) { st.textContent = "Fehler: " + e.message; }
 }
 
@@ -415,14 +380,6 @@ function fmtDate(s) {
 }
 
 function esc(s)  { return String(s).replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
-function esc2(s) { return String(s).replace(/'/g,"\\'").replace(/"/g,"&quot;"); }
-
-// Close dropdown on outside click
-document.addEventListener("click", e => {
-  if (!e.target.closest(".search-wrap")) {
-    document.querySelectorAll(".sym-drop.open").forEach(d => d.classList.remove("open"));
-  }
-});
 
 init();
 </script>

@@ -15,51 +15,8 @@ function writeDB(db) { fs.writeFileSync(TABLES_FILE, JSON.stringify(db, null, 2)
 
 // ── Helpers ─────────────────────────────────────────────────
 
-const YH  = "https://query1.finance.yahoo.com";
+const YH    = "https://query1.finance.yahoo.com";
 const YH_UA = { "User-Agent": "Mozilla/5.0", Accept: "application/json" };
-const TV_UA = {
-  "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-  "Origin":  "https://www.tradingview.com",
-  "Referer": "https://www.tradingview.com/",
-};
-
-// Maps TradingView exchange code → Yahoo Finance ticker suffix
-const EXCHANGE_SUFFIX = {
-  XETR: ".DE", FWB: ".F", GETTEX: ".MU", BVMF: ".SA",
-  LSE:  ".L",  EPA: ".PA", AMS: ".AS",  BME: ".MC",
-  SIX:  ".SW", OSL: ".OL", STO: ".ST",  HEL: ".HE",
-  CPH:  ".CO", ISE: ".IR", MIL: ".MI",  WSE: ".WA",
-  PSX:  ".PK", NASDAQ: "", NYSE: "", AMEX: "", ARCA: "",
-  CBOE: "", NYSEARCA: "", BATS: "", NYSEAMERICAN: "",
-};
-
-function tvToYahoo(exchange, symbol) {
-  const suffix = EXCHANGE_SUFFIX[exchange];
-  if (suffix !== undefined) return symbol + suffix;
-  // Unknown exchange: try bare symbol (works for most US stocks)
-  return symbol;
-}
-
-// TradingView symbol search
-const TV_SEARCH = "https://symbol-search.tradingview.com/symbol_search/v3/";
-const TV_INCLUDE = new Set(["stock", "fund", "dr", "etf"]);
-
-async function tvSearch(q) {
-  const url = `${TV_SEARCH}?text=${encodeURIComponent(q)}&hl=0&lang=en&exchange=&domain=production`;
-  const r = await fetch(url, { headers: TV_UA, timeout: 8000 });
-  if (!r.ok) throw new Error(`TV search ${r.status}`);
-  const data = await r.json();
-  return (data.symbols || [])
-    .filter(x => TV_INCLUDE.has(x.type))
-    .slice(0, 10)
-    .map(x => ({
-      tvSymbol:    `${x.exchange}:${x.symbol}`,
-      yahooSymbol: tvToYahoo(x.exchange, x.symbol),
-      name:        x.description || x.symbol,
-      exchange:    x.source2?.name || x.exchange,
-      country:     x.country || "",
-    }));
-}
 
 async function yahooHistory(symbol) {
   const url = `${YH}/v8/finance/chart/${encodeURIComponent(symbol)}?range=2mo&interval=1d&includePrePost=false`;
@@ -68,6 +25,7 @@ async function yahooHistory(symbol) {
   const json = await r.json();
   const res  = json?.chart?.result?.[0];
   if (!res) throw new Error("Keine Daten");
+  const name = res.meta?.longName || res.meta?.shortName || symbol;
   const ts = res.timestamp;
   const q  = res.indicators.quote[0];
   const candles = [];
@@ -78,8 +36,7 @@ async function yahooHistory(symbol) {
       volume: q.volume[i] != null ? q.volume[i] : 0,
     });
   }
-  // newest first, capped at MAX_DAYS
-  return candles.slice(-MAX_DAYS).reverse();
+  return { name, candles: candles.slice(-MAX_DAYS).reverse() };
 }
 
 async function yahooLatest(symbol) {
@@ -171,14 +128,6 @@ function withStats(db) {
 }
 
 function registerRoutes(app) {
-  // Search (TradingView)
-  app.get("/api/verfolgung/search", async (req, res) => {
-    const q = (req.query.q || "").trim();
-    if (!q) return res.json([]);
-    try { res.json(await tvSearch(q)); }
-    catch (e) { res.status(502).json({ error: e.message }); }
-  });
-
   // Get all tables
   app.get("/api/verfolgung/tables", (_req, res) => res.json(withStats(readDB())));
 
@@ -212,16 +161,10 @@ function registerRoutes(app) {
   });
 
   // Add security (loads 20-day history)
-  // Body: { tvSymbol: "XETR:ALV", displayName: "Allianz SE" }
-  // yahooSymbol is derived server-side from the exchange:symbol mapping
+  // Body: { yahooSymbol: "PGHN.SW" }
   app.post("/api/verfolgung/tables/:id/securities", async (req, res) => {
-    const { tvSymbol, displayName } = req.body;
-    if (!tvSymbol) return res.status(400).json({ error: "tvSymbol required" });
-
-    // Derive Yahoo ticker from TV symbol
-    const [exchange, sym] = tvSymbol.includes(":")
-      ? tvSymbol.split(":") : ["", tvSymbol];
-    const yahooSymbol = tvToYahoo(exchange, sym);
+    const yahooSymbol = (req.body.yahooSymbol || "").trim().toUpperCase();
+    if (!yahooSymbol) return res.status(400).json({ error: "yahooSymbol required" });
 
     const db = readDB();
     const t  = db.tables.find(x => x.id === req.params.id);
@@ -229,10 +172,10 @@ function registerRoutes(app) {
     if (t.securities.find(s => s.yahooSymbol === yahooSymbol))
       return res.status(409).json({ error: "already exists" });
     try {
-      const data = await yahooHistory(yahooSymbol);
-      t.securities.push({ tvSymbol, yahooSymbol, displayName: displayName || sym, einstand: 0, data });
+      const { name, candles } = await yahooHistory(yahooSymbol);
+      t.securities.push({ yahooSymbol, displayName: name, einstand: 0, data: candles });
       writeDB(db);
-      res.json({ ok: true, yahooSymbol });
+      res.json({ ok: true, yahooSymbol, displayName: name });
     } catch (e) {
       res.status(502).json({ error: e.message });
     }
