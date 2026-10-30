@@ -1,0 +1,6 @@
+node_modules/
+data/
+Sicherungen/
+.anthropic-key
+.DS_Store
+*.log
