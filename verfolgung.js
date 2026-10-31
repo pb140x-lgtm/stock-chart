@@ -25,7 +25,8 @@ async function yahooHistory(symbol) {
   const json = await r.json();
   const res  = json?.chart?.result?.[0];
   if (!res) throw new Error("Keine Daten");
-  const name = res.meta?.longName || res.meta?.shortName || symbol;
+  const name     = res.meta?.longName || res.meta?.shortName || symbol;
+  const currency = res.meta?.currency || "";
   const ts = res.timestamp;
   const q  = res.indicators.quote[0];
   const candles = [];
@@ -36,7 +37,7 @@ async function yahooHistory(symbol) {
       volume: q.volume[i] != null ? q.volume[i] : 0,
     });
   }
-  return { name, candles: candles.slice(-MAX_DAYS).reverse() };
+  return { name, currency, candles: candles.slice(-MAX_DAYS).reverse() };
 }
 
 async function yahooLatest(symbol) {
@@ -172,8 +173,8 @@ function registerRoutes(app) {
     if (t.securities.find(s => s.yahooSymbol === yahooSymbol))
       return res.status(409).json({ error: "already exists" });
     try {
-      const { name, candles } = await yahooHistory(yahooSymbol);
-      t.securities.push({ yahooSymbol, displayName: name, einstand: 0, data: candles });
+      const { name, currency, candles } = await yahooHistory(yahooSymbol);
+      t.securities.push({ yahooSymbol, displayName: name, currency, einstand: 0, data: candles });
       writeDB(db);
       res.json({ ok: true, yahooSymbol, displayName: name });
     } catch (e) {

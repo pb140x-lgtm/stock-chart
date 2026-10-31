@@ -42,6 +42,7 @@ table.sec-tbl tr.sep-row td{height:6px;background:#f7f9fc;border:none}
 .col-chart{width:82px;min-width:82px;text-align:center;padding:2px 4px}
 .col-sym{font-size:11px;font-weight:700;color:#1a1a2e;max-width:110px}
 .col-type{color:#7a8a9e;font-size:10px;width:52px}
+.col-curr{color:#1a56cc;font-size:10px;font-weight:700;width:36px;text-align:center}
 .col-stat{text-align:right;min-width:72px}
 .col-day{text-align:right;min-width:68px;color:#1a1a2e}
 .col-day.zero{color:#b0bac8}
@@ -186,6 +187,7 @@ function renderSecRows(tid, sec) {
   <th class="col-chart">Kurs</th>
   <th class="col-chart">Volumen</th>
   <th class="col-sym">${esc(sec.displayName)}</th>
+  <th class="col-curr"></th>
   <th class="col-type"></th>
   <th class="col-stat">Max</th>
   <th class="col-stat">Min</th>
@@ -199,6 +201,7 @@ function renderSecRows(tid, sec) {
   <td class="col-chart">${priceSvg}</td>
   <td class="col-chart"></td>
   <td class="col-sym" style="font-size:10px;color:#787b86">${esc(sec.yahooSymbol)}</td>
+  <td class="col-curr">${esc(sec.currency || "")}</td>
   <td class="col-type">Preis</td>
   <td class="col-stat bg-max">${fmtNum(s.maxClose)}</td>
   <td class="col-stat bg-min">${fmtNum(s.minClose)}</td>
@@ -214,6 +217,7 @@ function renderSecRows(tid, sec) {
   <td class="col-chart"></td>
   <td class="col-chart">${volSvg}</td>
   <td></td>
+  <td class="col-curr"></td>
   <td class="col-type">Volumen</td>
   <td class="col-stat bg-max">${fmtVol(s.maxVol)}</td>
   <td class="col-stat bg-min">${fmtVol(s.minVol)}</td>
