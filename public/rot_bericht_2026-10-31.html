@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verfolgung – Rote Kursfelder | 31.10.2026</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #eef1f5;
+    color: #1a1a2e;
+    font-family: 'Trebuchet MS', sans-serif;
+    padding: 28px 20px 48px;
+    min-height: 100vh;
+  }
+
+  header {
+    margin-bottom: 28px;
+  }
+
+  header h1 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1a1a2e;
+  }
+
+  header p {
+    font-size: 12px;
+    color: #5a6a7e;
+    margin-top: 5px;
+    max-width: 680px;
+    line-height: 1.6;
+  }
+
+  .legend {
+    display: flex;
+    gap: 18px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #5a6a7e;
+  }
+
+  .swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .swatch-today   { background: #f8a8a8; border: 1px solid #e07070; }
+  .swatch-recent  { background: #fde8e8; border: 1px solid #e0a8a8; }
+  .swatch-neutral { background: #fff3cd; border: 1px solid #d4b060; }
+
+  section {
+    margin-bottom: 28px;
+  }
+
+  .section-header {
+    background: #d8dfe9;
+    padding: 7px 14px;
+    border-radius: 6px 6px 0 0;
+    font-size: 12px;
+    font-weight: 700;
+    color: #1a1a2e;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 2px solid #c4cdd8;
+  }
+
+  .badge {
+    background: #1a56cc;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 10px;
+  }
+
+  .badge.none {
+    background: #8a9ab0;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border-radius: 0 0 6px 6px;
+    overflow: hidden;
+    font-size: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    table-layout: fixed;
+  }
+
+  col.c-sym  { width: 14%; }
+  col.c-name { width: 36%; }
+  col.c-curr { width:  7%; }
+  col.c-date { width: 14%; }
+  col.c-low  { width: 10%; }
+  col.c-ein  { width: 10%; }
+  col.c-dev  { width:  9%; }
+
+  thead th {
+    background: #f0f4f8;
+    color: #5a6a7e;
+    font-size: 10px;
+    font-weight: 600;
+    text-align: left;
+    padding: 6px 10px;
+    border-bottom: 1px solid #d0d7e2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  thead th.r { text-align: right; }
+
+  tbody tr {
+    border-bottom: 1px solid #eef1f5;
+    transition: background 0.1s;
+  }
+
+  tbody tr:last-child { border-bottom: none; }
+
+  tbody tr:hover { background: #f7f9fc; }
+
+  td {
+    padding: 7px 10px;
+    vertical-align: middle;
+  }
+
+  .td-sym {
+    font-weight: 700;
+    font-size: 11px;
+    color: #1a1a2e;
+    white-space: nowrap;
+  }
+
+  .td-name {
+    color: #3a4a5e;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .td-curr {
+    font-size: 10px;
+    font-weight: 700;
+    color: #1a56cc;
+    text-align: center;
+  }
+
+  .td-date {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .td-close {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .td-einstand {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: #5a6a7e;
+    white-space: nowrap;
+  }
+
+  .td-dev {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .dev-pos  { color: #1a7a5e; }
+  .dev-neg  { color: #c0392b; }
+  .dev-none { color: #8a9ab0; }
+
+  /* Row highlighting by how recent the minimum is */
+  tr.today  { background: #fff0f0; }
+  tr.recent { background: #fffafa; }
+
+  .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-right: 4px;
+  }
+
+  .dot-today  { background: #e03030; }
+  .dot-recent { background: #e07070; }
+
+  .empty-msg {
+    background: #fff;
+    border-radius: 0 0 6px 6px;
+    padding: 16px 14px;
+    font-size: 12px;
+    color: #8a9ab0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+
+  .note {
+    margin-top: 8px;
+    font-size: 10px;
+    color: #8a9ab0;
+    padding: 6px 10px;
+    background: #f7f9fc;
+    border-left: 3px solid #c4cdd8;
+    border-radius: 0 4px 4px 0;
+  }
+
+  footer {
+    margin-top: 36px;
+    font-size: 10px;
+    color: #a0aab8;
+    border-top: 1px solid #d0d7e2;
+    padding-top: 12px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Verfolgung — Rote Kursfelder in den ersten 10 Handelstagen</h1>
+  <p>Stand: 31.10.2026 &nbsp;·&nbsp; Zeigt alle Positionen, bei denen das 20-Tage-Minimum des Schlusskurses in den <strong>ersten 10 Datumsspalten</strong> (30.10. – 19.10.) liegt (= das rote Feld in der Preisreihe). Fehlende Kurse vom 30.10. für MUV2.DE, ABBN.SW, ITB.DE und UBSG.SW wurden nachträglich ergänzt.</p>
+  <div class="legend">
+    <div class="legend-item"><div class="swatch swatch-today"></div> Minimum am heutigen Tag (30.10.)</div>
+    <div class="legend-item"><div class="swatch swatch-recent"></div> Minimum vor 1–10 Tagen</div>
+    <div class="legend-item"><div class="swatch swatch-neutral"></div> Kein Minimum in ersten 10 Tagen</div>
+  </div>
+</header>
+
+<!-- ── BESTAND ─────────────────────────────────────── -->
+<section>
+  <div class="section-header">
+    Bestand
+    <span class="badge none">0 Positionen</span>
+  </div>
+  <div class="empty-msg">Keine Position hat ihr 20-Tage-Minimum in den ersten 10 Handelstagen — alle Tiefs liegen weiter zurück.</div>
+</section>
+
+<!-- ── BESTAND2 ────────────────────────────────────── -->
+<section>
+  <div class="section-header">
+    Bestand2
+    <span class="badge">14 Positionen</span>
+  </div>
+  <table>
+    <colgroup>
+      <col class="c-sym"><col class="c-name"><col class="c-curr">
+      <col class="c-date"><col class="c-low"><col class="c-ein"><col class="c-dev">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Kürzel</th>
+        <th>Name</th>
+        <th>Währung</th>
+        <th class="r">Datum des Minimums</th>
+        <th class="r">Tiefstkurs</th>
+        <th class="r">Einstand</th>
+        <th class="r">Abw. %</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="recent">
+        <td class="td-sym"><span class="dot dot-recent"></span>GEV</td>
+        <td class="td-name">GE Vernova Inc.</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">23.10.2026</td>
+        <td class="td-close">815,00</td>
+        <td class="td-einstand">818,16</td>
+        <td class="td-dev dev-neg">−0,39 %</td>
+      </tr>
+      <tr class="recent">
+        <td class="td-sym"><span class="dot dot-recent"></span>ABBN.SW</td>
+        <td class="td-name">ABB Ltd</td>
+        <td class="td-curr">CHF</td>
+        <td class="td-date">23.10.2026</td>
+        <td class="td-close">67,78</td>
+        <td class="td-einstand">53,78</td>
+        <td class="td-dev dev-pos">+26,03 %</td>
+      </tr>
+      <tr class="recent">
+        <td class="td-sym"><span class="dot dot-recent"></span>UBSG.SW</td>
+        <td class="td-name">UBS Group AG</td>
+        <td class="td-curr">CHF</td>
+        <td class="td-date">23.10.2026</td>
+        <td class="td-close">38,32</td>
+        <td class="td-einstand">37,37</td>
+        <td class="td-dev dev-pos">+2,54 %</td>
+      </tr>
+      <tr class="recent">
+        <td class="td-sym"><span class="dot dot-recent"></span>MSFT</td>
+        <td class="td-name">Microsoft Corporation</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">22.10.2026</td>
+        <td class="td-close">521,08</td>
+        <td class="td-einstand">135,97</td>
+        <td class="td-dev dev-pos">+283,24 %</td>
+      </tr>
+      <tr class="recent">
+        <td class="td-sym"><span class="dot dot-recent"></span>ASI.PA</td>
+        <td class="td-name">Amundi MSCI China ESG Selection UCITS ETF Acc</td>
+        <td class="td-curr">EUR</td>
+        <td class="td-date">22.10.2026</td>
+        <td class="td-close">95,48</td>
+        <td class="td-einstand">106,17</td>
+        <td class="td-dev dev-neg">−10,07 %</td>
+      </tr>
+      <tr class="recent">
+        <td class="td-sym"><span class="dot dot-recent"></span>XKSD.L</td>
+        <td class="td-name">Xtrackers MSCI Korea UCITS ETF 1C</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">22.10.2026</td>
+        <td class="td-close">192,65</td>
+        <td class="td-einstand">237,02</td>
+        <td class="td-dev dev-neg">−18,72 %</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>LU0659578842-USD.LU</td>
+        <td class="td-name">Xtrackers MSCI Singapore UCITS ETF 1C</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">30.10.2026</td>
+        <td class="td-close">2,55</td>
+        <td class="td-einstand">2,63</td>
+        <td class="td-dev dev-neg">−3,04 %</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>XMJD.L</td>
+        <td class="td-name">Xtrackers MSCI Japan UCITS ETF 1C</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">30.10.2026</td>
+        <td class="td-close">116,58</td>
+        <td class="td-einstand">124,39</td>
+        <td class="td-dev dev-neg">−6,28 %</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>XMBD.L</td>
+        <td class="td-name">Xtrackers MSCI Brazil UCITS ETF 1C</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">30.10.2026</td>
+        <td class="td-close">60,79</td>
+        <td class="td-einstand">74,68</td>
+        <td class="td-dev dev-neg">−18,60 %</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>COPX</td>
+        <td class="td-name">Global X Copper Miners ETF</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">30.10.2026</td>
+        <td class="td-close">71,96</td>
+        <td class="td-einstand">61,69</td>
+        <td class="td-dev dev-pos">+16,65 %</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>LSMC.DE</td>
+        <td class="td-name">Amundi MSCI Semiconductors ESG Screened UCITS ETF</td>
+        <td class="td-curr">EUR</td>
+        <td class="td-date">30.10.2026</td>
+        <td class="td-close">103,48</td>
+        <td class="td-einstand">102,12</td>
+        <td class="td-dev dev-pos">+1,33 %</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>COMH.MI</td>
+        <td class="td-name">Amundi Bloomberg Commodity ex-Agriculture UCITS ETF</td>
+        <td class="td-curr">EUR</td>
+        <td class="td-date">30.10.2026</td>
+        <td class="td-close">42,09</td>
+        <td class="td-einstand">41,34</td>
+        <td class="td-dev dev-pos">+1,81 %</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>WSLV.MI</td>
+        <td class="td-name">WisdomTree Core Physical Silver USD ETC</td>
+        <td class="td-curr">EUR</td>
+        <td class="td-date">30.10.2026</td>
+        <td class="td-close">43,95</td>
+        <td class="td-einstand">64,75</td>
+        <td class="td-dev dev-neg">−32,13 %</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>X7PS.MI</td>
+        <td class="td-name">Invesco STOXX Europe 600 Optimised Banks UCITS ETF</td>
+        <td class="td-curr">EUR</td>
+        <td class="td-date">30.10.2026</td>
+        <td class="td-close">221,80</td>
+        <td class="td-einstand">218,81</td>
+        <td class="td-dev dev-pos">+1,37 %</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="note">Ergänzte Kurse vom 30.10. (waren zuvor 0): MUV2.DE → 567,00 EUR &nbsp;|&nbsp; ABBN.SW → 70,68 CHF &nbsp;|&nbsp; ITB.DE → 35,44 EUR &nbsp;|&nbsp; UBSG.SW → 39,24 CHF. Diese vier haben ihr 20-Tage-Minimum weiter zurück und erscheinen daher nicht in dieser Liste.</div>
+</section>
+
+<!-- ── EMA FILTER ─────────────────────────────────── -->
+<section>
+  <div class="section-header">
+    EMA Filter
+    <span class="badge">2 Positionen</span>
+  </div>
+  <table>
+    <colgroup>
+      <col class="c-sym"><col class="c-name"><col class="c-curr">
+      <col class="c-date"><col class="c-low"><col class="c-ein"><col class="c-dev">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Kürzel</th>
+        <th>Name</th>
+        <th>Währung</th>
+        <th class="r">Datum des Minimums</th>
+        <th class="r">Tiefstkurs</th>
+        <th class="r">Einstand</th>
+        <th class="r">Abw. %</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="recent">
+        <td class="td-sym"><span class="dot dot-recent"></span>SPM.MI</td>
+        <td class="td-name">Saipem SpA</td>
+        <td class="td-curr">EUR</td>
+        <td class="td-date">22.10.2026</td>
+        <td class="td-close">4,216</td>
+        <td class="td-einstand">—</td>
+        <td class="td-dev dev-none">—</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>X7PS.MI</td>
+        <td class="td-name">Invesco STOXX Europe 600 Optimised Banks UCITS ETF</td>
+        <td class="td-curr">EUR</td>
+        <td class="td-date">30.10.2026</td>
+        <td class="td-close">221,80</td>
+        <td class="td-einstand">218,81</td>
+        <td class="td-dev dev-pos">+1,37 %</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ── QUALITÄTSAKTIEN ────────────────────────────── -->
+<section>
+  <div class="section-header">
+    Qualitätsaktien
+    <span class="badge">2 Positionen</span>
+  </div>
+  <table>
+    <colgroup>
+      <col class="c-sym"><col class="c-name"><col class="c-curr">
+      <col class="c-date"><col class="c-low"><col class="c-ein"><col class="c-dev">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Kürzel</th>
+        <th>Name</th>
+        <th>Währung</th>
+        <th class="r">Datum des Minimums</th>
+        <th class="r">Tiefstkurs</th>
+        <th class="r">Einstand</th>
+        <th class="r">Abw. %</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="recent">
+        <td class="td-sym"><span class="dot dot-recent"></span>ADI</td>
+        <td class="td-name">Analog Devices, Inc.</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">22.10.2026</td>
+        <td class="td-close">385,76</td>
+        <td class="td-einstand">—</td>
+        <td class="td-dev dev-none">—</td>
+      </tr>
+      <tr class="recent">
+        <td class="td-sym"><span class="dot dot-recent"></span>4BRZ.DE</td>
+        <td class="td-name">iShares MSCI Brazil UCITS ETF (DE)</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">29.10.2026</td>
+        <td class="td-close">46,83</td>
+        <td class="td-einstand">—</td>
+        <td class="td-dev dev-none">—</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<footer>
+  Erstellt am 31.10.2026 &nbsp;·&nbsp; Verfolgung-App &nbsp;·&nbsp; Rot = 20-Tage-Minimum des Schlusskurses liegt in den ersten 10 Datumsspalten (30.10.–19.10.2026)
+</footer>
+
+</body>
+</html>
