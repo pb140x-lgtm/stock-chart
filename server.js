@@ -4,7 +4,8 @@ const path    = require("path");
 const fs      = require("fs");
 const cron    = require("node-cron");
 const { runScreener }              = require("./screener-trades");
-const { registerRoutes, dailyUpdate } = require("./verfolgung");
+const { registerRoutes, dailyUpdate, rebound } = require("./verfolgung");
+const { generateReport }           = require("./bericht");
 
 const app  = express();
 const PORT = 3000;
@@ -136,6 +137,29 @@ app.post("/api/watchlist/run", (_req, res) => {
 // ── Verfolgung ─────────────────────────────────────────────
 registerRoutes(app);
 
+// ── Rebound ────────────────────────────────────────────────
+rebound.registerRoutes(app);
+
+// ── Bericht (rote & grüne Felder, letzte 5 Tage) ───────────
+app.post("/api/bericht/generate", (_req, res) => {
+  try {
+    const r = generateReport();
+    res.json({ ok: true, file: r.file, url: "/" + r.file });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Bequemer Einstieg: erzeugt (falls nötig) die heutige Datei und öffnet sie.
+app.get("/bericht", (_req, res) => {
+  try {
+    const r = generateReport();
+    res.redirect("/" + r.file);
+  } catch (e) {
+    res.status(500).send("Bericht-Fehler: " + e.message);
+  }
+});
+
 // ── Cron-Scheduling ────────────────────────────────────────
 // STOXX 600: Dienstag (2) + Freitag (5) um 20:00
 cron.schedule("0 20 * * 2,5", () => {
@@ -147,10 +171,19 @@ cron.schedule("0 20 * * 2,5", () => {
     .finally(() => { stoxxRunning = false; });
 });
 
-// Verfolgung: Mo–Fr 23:05
+// Verfolgung + Rebound: Mo–Fr 23:05
 cron.schedule("5 23 * * 1-5", () => {
   console.log("[Cron] Verfolgung Daily Update …");
   dailyUpdate().catch(e => console.error("[Cron Verfolgung]", e));
+  rebound.dailyUpdate().catch(e => console.error("[Cron Rebound]", e));
+});
+
+// Bericht (rote & grüne Felder): Di–Sa um 07:00
+// (Di–Sa = Handelstage-Morgen nach dem Update vom Vorabend Mo–Fr 23:05)
+cron.schedule("0 7 * * 2-6", () => {
+  console.log("[Cron] Bericht rote/grüne Felder …");
+  try { generateReport(); }
+  catch (e) { console.error("[Cron Bericht]", e); }
 });
 
 app.listen(PORT, () => console.log(`[Server] http://localhost:${PORT}`));
