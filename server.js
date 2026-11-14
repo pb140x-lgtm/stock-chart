@@ -129,7 +129,7 @@ app.post("/api/watchlist/run", (_req, res) => {
   if (list.length === 0) return res.json({ status: "Watchlist leer" });
   watchlistRunning = true;
   res.json({ status: "gestartet" });
-  runScreener(list, WATCHLIST_RESULTS_FILE)
+  runScreener(list, WATCHLIST_RESULTS_FILE, { includeAll: true })
     .catch(e => console.error("[Watchlist]", e))
     .finally(() => { watchlistRunning = false; });
 });

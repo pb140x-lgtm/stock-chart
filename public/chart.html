@@ -10,8 +10,12 @@
   body{background:#131722;color:#d1d4dc;font-family:'Trebuchet MS',sans-serif;display:flex;flex-direction:column;height:100vh;overflow:hidden}
 
   #toolbar{display:flex;align-items:center;gap:10px;padding:7px 12px;background:#1e222d;border-bottom:1px solid #2a2e39;flex-shrink:0;flex-wrap:wrap}
-  #sym-label{font-size:14px;font-weight:700;color:#2962ff;min-width:80px}
-  #name-label{font-size:12px;color:#787b86;flex:1}
+  /* Kürzel und Name: hinterlegt wie ein aktiver Schalter (z. B. SMA200) */
+  #sym-label,#name-label{color:#2962ff;background:#1c2f7a30;padding:4px 8px;border-radius:3px;font-weight:600}
+  #sym-label{font-size:14px;font-weight:700}
+  #name-label{font-size:12px}
+  #name-label:empty{display:none}
+  .grow{flex:1}
   #price-label{font-size:14px;font-weight:700}
   #change-label{font-size:12px}
   .up{color:#26a69a} .dn{color:#ef5350}
@@ -48,6 +52,7 @@
 <div id="toolbar">
   <span id="sym-label">–</span>
   <span id="name-label"></span>
+  <span class="grow"></span>
   <div class="sep"></div>
   <span id="price-label">–</span>
   <span id="change-label"></span>
@@ -61,8 +66,8 @@
   <button class="ind-toggle on" id="tog-dc"     onclick="toggleLayer('dc')">Turtle</button>
   <button class="ind-toggle on" id="tog-sma20"  onclick="toggleLayer('sma20')">SMA20</button>
   <button class="ind-toggle on" id="tog-sma50"  onclick="toggleLayer('sma50')">SMA50</button>
-  <button class="ind-toggle on" id="tog-sma100" onclick="toggleLayer('sma100')">SMA100</button>
-  <button class="ind-toggle on" id="tog-sma200" onclick="toggleLayer('sma200')">SMA200</button>
+  <button class="ind-toggle" id="tog-sma100" onclick="toggleLayer('sma100')">SMA100</button>
+  <button class="ind-toggle" id="tog-sma200" onclick="toggleLayer('sma200')">SMA200</button>
 </div>
 
 <div id="ohlc-bar">
@@ -265,8 +270,8 @@ function buildCharts() {
   seriesDcMid = chartMain.addLineSeries({ color: COLORS.dcMid, lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false });
   seriesSma20  = chartMain.addLineSeries({ color: COLORS.sma20,  lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
   seriesSma50  = chartMain.addLineSeries({ color: COLORS.sma50,  lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
-  seriesSma100 = chartMain.addLineSeries({ color: COLORS.sma100, lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
-  seriesSma200 = chartMain.addLineSeries({ color: COLORS.sma200, lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+  seriesSma100 = chartMain.addLineSeries({ color: COLORS.sma100, lineWidth: 1, visible: layerState.sma100, priceLineVisible: false, lastValueVisible: false });
+  seriesSma200 = chartMain.addLineSeries({ color: COLORS.sma200, lineWidth: 1, visible: layerState.sma200, priceLineVisible: false, lastValueVisible: false });
 
   seriesRsi  = chartRsi.addLineSeries({ color: COLORS.rsi,    lineWidth: 1, priceLineVisible: false });
   seriesRsiH = chartRsi.addLineSeries({ color: COLORS.rsiRef, lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false });
@@ -409,7 +414,8 @@ const layerMap = {
   sma100: [() => seriesSma100],
   sma200: [() => seriesSma200],
 };
-const layerState = { dc: true, sma20: true, sma50: true, sma100: true, sma200: true };
+// SMA100 und SMA200 sind standardmäßig aus und lassen sich über die Schalter einblenden
+const layerState = { dc: true, sma20: true, sma50: true, sma100: false, sma200: false };
 
 function toggleLayer(key) {
   layerState[key] = !layerState[key];

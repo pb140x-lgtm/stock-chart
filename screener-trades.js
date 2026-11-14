@@ -6,6 +6,7 @@ const path  = require("path");
 const SMA_PERIOD    = 20;
 const EVAL_DAYS     = 600;
 const MIN_EVAL_DAYS = 300;
+const ARROW_PERIOD  = 20;
 
 async function fetchCandles(symbol) {
   const url =
@@ -28,6 +29,8 @@ async function fetchCandles(symbol) {
       candles.push({
         date:  new Date(ts[i] * 1000).toISOString().slice(0, 10),
         close: q.close[i],
+        high:  q.high?.[i] ?? q.close[i],
+        low:   q.low?.[i]  ?? q.close[i],
       });
     }
     return candles.length >= MIN_EVAL_DAYS ? candles : null;
@@ -143,6 +146,31 @@ function closeOpenTrade(trade, exitDate, exitPrice, tradesArr) {
   tradesArr.push({ ...trade });
 }
 
+// ── Pfeil-Signale (wie im Chart: 20-Tage-Ausbruch) ─────────
+// Kauf:    Schlusskurs über dem höchsten Hoch der vorigen 20 Tage
+// Verkauf: Schlusskurs unter dem tiefsten Tief der vorigen 20 Tage
+// Es gilt nur das erste Signal nach einem Gegensignal (Kauf/Verkauf wechseln sich ab).
+function detectArrows(candles, period = ARROW_PERIOD) {
+  const arrows = [];
+  let pos = 0;   // 0 = noch kein Signal, 1 = Kauf, -1 = Verkauf
+  for (let i = period; i < candles.length; i++) {
+    let hi = -Infinity, lo = Infinity;
+    for (let j = i - period; j < i; j++) {
+      if (candles[j].high > hi) hi = candles[j].high;
+      if (candles[j].low  < lo) lo = candles[j].low;
+    }
+    const c = candles[i].close;
+    if (c > hi && pos !== 1) {
+      arrows.push({ direction: "Kauf", date: candles[i].date, price: +c.toFixed(4) });
+      pos = 1;
+    } else if (c < lo && pos !== -1) {
+      arrows.push({ direction: "Verkauf", date: candles[i].date, price: +c.toFixed(4) });
+      pos = -1;
+    }
+  }
+  return arrows;
+}
+
 async function runScreener(symbols, outputFile, opts = {}) {
   const list = opts.testMode
     ? [...symbols].sort(() => Math.random() - 0.5).slice(0, 20)
@@ -159,27 +187,34 @@ async function runScreener(symbols, outputFile, opts = {}) {
     if (!candles) continue;
 
     const allTrades = detectTrades(candles);
-    if (allTrades.length === 0) continue;
+    const allArrows = detectArrows(candles);
 
-    // Symbol nur aufnehmen wenn ein Signal in den letzten 5 Handelstagen (≈ 8 Kalendertage)
+    // Neues Signal = MA20-Signal oder Pfeil in den letzten 5 Handelstagen (≈ 8 Kalendertage)
     const recentCutoff = new Date();
     recentCutoff.setDate(recentCutoff.getDate() - 8);
     const recentStr = recentCutoff.toISOString().slice(0, 10);
-    const hasRecentSignal = allTrades.some(t => t.entryDate >= recentStr);
-    if (!hasRecentSignal) continue;
+    const recentTrade = allTrades.some(t => t.entryDate >= recentStr);
+    const recentArrow = allArrows.length > 0 && allArrows[allArrows.length - 1].date >= recentStr;
 
-    // Für diese Treffer: Trades des letzten Jahres anzeigen
+    // STOXX: nur Titel mit neuem Signal. Watchlist (includeAll): jeden Titel mit seinem Stand.
+    if (!opts.includeAll && !recentTrade && !recentArrow) continue;
+
+    // Anzeige: Trades und Pfeile des letzten Jahres
     const yearCutoff = new Date();
     yearCutoff.setFullYear(yearCutoff.getFullYear() - 1);
     const yearStr = yearCutoff.toISOString().slice(0, 10);
-    const trades = allTrades.filter(t => t.entryDate >= yearStr);
-    if (trades.length === 0) continue;
+    const lastClose = candles[candles.length - 1].close;
 
     results.push({
       symbol: s.symbol,
       name:   s.name,
       index:  s.index || "",
-      trades,
+      close:  +lastClose.toFixed(4),
+      recentTrade,
+      recentArrow,
+      trades: allTrades.filter(t => t.entryDate >= yearStr),
+      // mindestens der letzte Pfeil, damit der aktuelle Stand immer sichtbar ist
+      arrows: allArrows.filter((a, k) => a.date >= yearStr || k === allArrows.length - 1),
     });
 
     await new Promise(r => setTimeout(r, 80));
@@ -199,4 +234,4 @@ async function runScreener(symbols, outputFile, opts = {}) {
   return out;
 }
 
-module.exports = { fetchCandles, detectTrades, runScreener };
+module.exports = { fetchCandles, detectTrades, detectArrows, runScreener };

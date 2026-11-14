@@ -3,159 +3,239 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
 <title>MA20 Screener</title>
 <style>
+  /* ── Apple-Farbschema (System Colors), hell + dunkel ── */
+  :root{
+    --bg:#f5f5f7; --surface:#ffffff; --fill:#e8e8ed; --fill-hover:#dedee3; --sep:#d2d2d7; --row-hover:#f5f5f7;
+    --label:#1d1d1f; --label2:#6e6e73; --label3:#aeaeb2;
+    --blue:#0071e3; --green:#248a3d; --red:#d70015; --orange:#c93400;
+    --green-bg:#34c7591f; --red-bg:#ff3b301a; --blue-bg:#007aff1a;
+    --shadow:0 1px 3px #0000000f;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#000000; --surface:#1c1c1e; --fill:#2c2c2e; --fill-hover:#3a3a3c; --sep:#38383a; --row-hover:#242426;
+      --label:#f5f5f7; --label2:#98989d; --label3:#636366;
+      --blue:#0a84ff; --green:#30d158; --red:#ff453a; --orange:#ff9f0a;
+      --green-bg:#30d15826; --red-bg:#ff453a26; --blue-bg:#0a84ff26;
+      --shadow:none;
+    }
+  }
+
   *{margin:0;padding:0;box-sizing:border-box}
-  body{background:#131722;color:#d1d4dc;font-family:'Trebuchet MS',sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+  body{background:var(--bg);color:var(--label);font:13px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}
+  button,input{font:inherit;color:inherit}
+  .wrap{max-width:1280px;margin:0 auto;padding:0 16px}
 
   /* Header */
-  #hdr{background:#1e222d;border-bottom:1px solid #2a2e39;padding:8px 14px;display:flex;align-items:center;gap:12px;flex-shrink:0}
-  #hdr h1{font-size:14px;font-weight:700;color:#d1d4dc;margin-right:4px}
-  .tab-btn{background:none;border:none;color:#787b86;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600}
-  .tab-btn:hover:not(.active){color:#d1d4dc;background:#2a2e39}
-  .tab-btn.active{color:#2962ff;background:#1c2f7a30}
+  #hdr{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 80%,transparent);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--sep)}
+  #hdr .wrap{display:flex;align-items:center;gap:16px;height:48px}
+  #hdr h1{font-size:15px;font-weight:600;letter-spacing:-.01em}
+  .seg{display:flex;background:var(--fill);border-radius:8px;padding:2px}
+  .seg button{background:none;border:none;color:var(--label);padding:4px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:500}
+  .seg button.active{background:var(--surface);box-shadow:0 1px 3px #00000026;font-weight:600}
+  @media (prefers-color-scheme: dark){ .seg button.active{background:#636366} }
+  .seg .count{color:var(--label2);font-weight:400;margin-left:4px}
 
-  /* Layout */
-  #main{flex:1;overflow:hidden;display:flex;flex-direction:column}
-  .pane{display:none;flex:1;flex-direction:column;overflow:hidden}
-  .pane.active{display:flex}
+  .pane{display:none;padding:12px 0 32px}
+  .pane.active{display:block}
 
   /* Toolbar */
-  .toolbar{background:#1e222d;border-bottom:1px solid #2a2e39;padding:7px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
-  .meta{font-size:11px;color:#787b86;flex:1;min-width:0}
-  .btn{background:#2a2e39;border:1px solid #363c4e;color:#d1d4dc;padding:4px 11px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600}
-  .btn:hover:not(:disabled){border-color:#787b86}
-  .btn.primary{border-color:#2962ff55;color:#2962ff}
-  .btn.primary:hover:not(:disabled){background:#1c2f7a30}
-  .btn:disabled{opacity:0.45;cursor:not-allowed}
-  .pulse{display:inline-block;width:7px;height:7px;border-radius:50%;background:#f59e0b;animation:blink 1s ease-in-out infinite;margin-right:5px;vertical-align:middle}
+  .toolbar{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  .meta{font-size:12px;color:var(--label2);flex:1;min-width:0}
+  .btn{background:var(--fill);border:none;color:var(--label);padding:5px 12px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:500;white-space:nowrap}
+  .btn:hover:not(:disabled){background:var(--fill-hover)}
+  .btn.primary{background:var(--blue);color:#fff}
+  .btn.primary:hover:not(:disabled){background:var(--blue);filter:brightness(1.1)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .pulse{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--orange);animation:blink 1s ease-in-out infinite;margin-right:6px;vertical-align:middle}
   @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+  .add input{background:var(--surface);border:1px solid var(--sep);padding:4px 10px;border-radius:7px;font-size:12px;width:170px;outline:none}
+  .add input:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-bg)}
+  .add input::placeholder{color:var(--label3)}
+  .add{display:flex;gap:6px;align-items:center}
+  .add-status{font-size:12px;color:var(--label2)}
+  .add-status.err{color:var(--red)}
 
-  /* Watchlist-Add Form */
-  .wl-form{background:#1e222d;border-bottom:1px solid #2a2e39;padding:7px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0}
-  .wl-form input{background:#2a2e39;border:1px solid #363c4e;color:#d1d4dc;padding:4px 10px;border-radius:4px;font-size:12px;width:150px;outline:none}
-  .wl-form input:focus{border-color:#2962ff}
-  .wl-form input::placeholder{color:#555d6b}
-  .wl-add-status{font-size:11px;color:#26a69a}
+  /* Tabelle */
+  .card{background:var(--surface);border-radius:10px;box-shadow:var(--shadow);overflow-x:auto}
+  .no-data{color:var(--label2);font-size:13px;padding:22px 14px;text-align:center}
+  table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+  .list th{font-size:11px;font-weight:500;color:var(--label2);text-align:left;padding:7px 8px;border-bottom:1px solid var(--sep);white-space:nowrap}
+  .list td{padding:6px 8px;white-space:nowrap}
+  .list tr.row{cursor:pointer}
+  .list tr.row + tr.row td, .list tr.detail + tr.row td{border-top:1px solid var(--sep)}
+  .list tr.row:hover td{background:var(--row-hover)}
+  .list tr.row.noexp{cursor:default}
+  .r{text-align:right !important}
+  .c-sym{font-weight:600;color:var(--blue);width:1%}
+  .c-name{max-width:210px;overflow:hidden;text-overflow:ellipsis}
+  .c-idx{color:var(--label2);font-size:12px}
+  .muted{color:var(--label3)}
+  .pos{color:var(--green)}
+  .neg{color:var(--red)}
+  .chev{display:inline-block;width:10px;color:var(--label3);font-size:9px;transition:transform .15s;margin-right:4px}
+  tr.row.open .chev{transform:rotate(90deg)}
+  .sig{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:5px;min-width:46px;text-align:center}
+  .sig.long{background:var(--green-bg);color:var(--green)}
+  .sig.short{background:var(--red-bg);color:var(--red)}
+  .sig.closed{background:var(--fill);color:var(--label2);font-weight:500}
 
-  /* Watchlist Pills */
-  .wl-pills{display:flex;flex-wrap:wrap;gap:5px;padding:7px 14px;background:#131722;border-bottom:1px solid #2a2e39;flex-shrink:0;max-height:70px;overflow-y:auto}
-  .pill{display:flex;align-items:center;gap:5px;background:#1e222d;border:1px solid #2a2e39;border-radius:4px;padding:2px 8px;font-size:11px}
-  .pill-sym{color:#2962ff;font-weight:700}
-  .pill-name{color:#787b86}
-  .pill-rm{background:none;border:none;color:#555d6b;cursor:pointer;font-size:13px;line-height:1;padding:0 2px;margin-left:2px}
-  .pill-rm:hover{color:#ef5350}
-  .wl-empty{color:#555d6b;font-size:12px;padding:4px 0}
+  .arr{font-size:10px;margin-right:5px}
+  .arr.up{color:var(--blue)}
+  .arr.down{color:var(--label)}
+  .new{font-size:10px;font-weight:600;color:var(--orange);margin-left:6px;text-transform:uppercase;letter-spacing:.03em}
+  .old{color:var(--label2)}
 
-  /* Results */
-  .results{flex:1;overflow-y:auto;padding:8px 14px}
-  .no-data{color:#555d6b;font-size:12px;padding:16px 0}
+  /* Aktionen */
+  .c-act{width:1%;text-align:right}
+  .acts{display:inline-flex;gap:4px;align-items:center}
+  .ico{display:inline-flex;align-items:center;justify-content:center;gap:4px;height:24px;min-width:24px;padding:0 5px;background:none;border:none;border-radius:6px;color:var(--label2);cursor:pointer;font-size:11px;font-weight:500}
+  .ico svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  .ico:hover{background:var(--fill);color:var(--blue)}
+  .ico.del:hover{background:var(--red-bg);color:var(--red)}
+  .ico.wl{padding:0 8px;background:var(--fill);color:var(--label)}
+  .ico.wl:hover{background:var(--fill-hover);color:var(--blue)}
+  .ico.wl.on{background:var(--blue-bg);color:var(--blue)}
+  .ico.wl.on:hover{background:var(--red-bg);color:var(--red)}
 
-  /* Hit item */
-  .hit{background:#1e222d;border:1px solid #2a2e39;border-radius:5px;margin-bottom:5px;overflow:hidden}
-  .hit-hdr{display:flex;align-items:center;gap:8px;padding:8px 11px;cursor:pointer;user-select:none}
-  .hit-hdr:hover{background:#232733}
-  .hit-sym{font-size:12px;font-weight:700;color:#2962ff;min-width:85px;flex-shrink:0}
-  .hit-name{font-size:12px;color:#d1d4dc;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-  .hit-idx{font-size:10px;color:#787b86;padding:2px 6px;background:#2a2e39;border-radius:3px;white-space:nowrap;flex-shrink:0}
-  .hit-badge{font-size:10px;padding:2px 7px;border-radius:3px;white-space:nowrap;flex-shrink:0}
-  .bl{background:#26a69a1a;color:#26a69a;border:1px solid #26a69a33}
-  .bs{background:#ef53501a;color:#ef5350;border:1px solid #ef535033}
-  .bc{background:#2a2e39;color:#787b86;border:1px solid #363c4e}
-  .wl-btn{background:none;border:1px solid #363c4e;color:#787b86;padding:2px 8px;border-radius:3px;cursor:pointer;font-size:10px;flex-shrink:0;white-space:nowrap}
-  .wl-btn:hover{border-color:#2962ff;color:#2962ff}
-  .wl-btn.inWL{color:#26a69a;border-color:#26a69a44}
-  .hit-arr{color:#787b86;font-size:10px;margin-left:2px;flex-shrink:0;transition:transform .15s}
-  .hit.open .hit-arr{transform:rotate(180deg)}
+  /* Trade-Historie */
+  tr.detail{display:none}
+  tr.row.open + tr.detail{display:table-row}
+  tr.detail > td{padding:0 10px 10px 28px;background:var(--surface)}
+  .hist{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+  .hist h3{font-size:11px;font-weight:600;color:var(--label2);margin:2px 0 4px 2px}
+  .trades{width:auto;background:var(--bg);border-radius:8px;font-size:12px}
+  .trades th{font-size:11px;font-weight:500;color:var(--label2);padding:5px 12px;text-align:left;white-space:nowrap}
+  .trades td{padding:4px 12px;border-top:1px solid var(--sep);white-space:nowrap}
+  .dir-long{color:var(--green);font-weight:600}
+  .dir-short{color:var(--red);font-weight:600}
 
-  /* Trade table */
-  .hit-body{display:none;border-top:1px solid #2a2e39}
-  .hit.open .hit-body{display:block}
-  .trade-tbl{width:100%;border-collapse:collapse;font-size:11px}
-  .trade-tbl th{background:#131722;color:#787b86;padding:5px 11px;text-align:left;font-weight:600;white-space:nowrap}
-  .trade-tbl td{padding:5px 11px;border-top:1px solid #1a1d26;white-space:nowrap}
-  .trade-tbl tr.is-open td{background:#26a69a06}
-  .long{color:#26a69a;font-weight:600}
-  .short{color:#ef5350;font-weight:600}
-  .pos{color:#26a69a}
-  .neg{color:#ef5350}
-  .open-tag{font-size:9px;background:#26a69a22;color:#26a69a;padding:1px 4px;border-radius:2px;margin-left:4px;vertical-align:middle}
+  /* Hinweis nach Löschen */
+  #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--label);color:var(--bg);font-size:12px;padding:8px 8px 8px 14px;border-radius:10px;display:none;align-items:center;gap:10px;box-shadow:0 4px 16px #0000004d}
+  #toast.show{display:flex}
+  #toast button{background:none;border:none;color:inherit;font-weight:600;cursor:pointer;padding:2px 8px;border-radius:6px;opacity:.85}
+  #toast button:hover{opacity:1;text-decoration:underline}
 </style>
 </head>
 <body>
 
-<div id="hdr">
+<div id="hdr"><div class="wrap">
   <h1>MA20 Screener</h1>
-  <button class="tab-btn active" onclick="switchTab('stoxx')">STOXX 600</button>
-  <button class="tab-btn" onclick="switchTab('wl')">Watchlist</button>
-</div>
+  <div class="seg">
+    <button class="active" data-tab="stoxx">STOXX 600<span class="count" id="cnt-stoxx"></span></button>
+    <button data-tab="wl">Watchlist<span class="count" id="cnt-wl"></span></button>
+  </div>
+</div></div>
 
-<div id="main">
+<div class="wrap">
 
   <!-- STOXX 600 -->
   <div class="pane active" id="pane-stoxx">
     <div class="toolbar">
+      <div class="seg" id="flt">
+        <button class="active" data-f="all">Alle<span class="count"></span></button>
+        <button data-f="kauf" title="Neuer Kaufpfeil"><span class="arr up">▲</span>Kauf<span class="count"></span></button>
+        <button data-f="verkauf" title="Neuer Verkaufspfeil"><span class="arr down">▼</span>Verkauf<span class="count"></span></button>
+        <button data-f="ma20" title="Neues MA20-Signal">MA20<span class="count"></span></button>
+      </div>
       <span class="meta" id="stoxx-meta">–</span>
       <button class="btn" id="btn-test" onclick="runScan('stoxx',true)">Test (20)</button>
-      <button class="btn primary" id="btn-stoxx" onclick="runScan('stoxx',false)">▶ Scan starten</button>
+      <button class="btn primary" id="btn-stoxx" onclick="runScan('stoxx',false)">Scan starten</button>
     </div>
-    <div class="results" id="res-stoxx"><div class="no-data">Noch kein Scan gelaufen.</div></div>
+    <div class="card" id="res-stoxx"><div class="no-data">Noch kein Scan gelaufen.</div></div>
   </div>
 
   <!-- Watchlist -->
   <div class="pane" id="pane-wl">
-    <div class="wl-form">
-      <input id="wl-input" type="text" placeholder="Ticker, z.B. ADS.DE"
-             onkeydown="if(event.key==='Enter')addTicker()">
-      <button class="btn primary" onclick="addTicker()">+ Hinzufügen</button>
-      <span class="wl-add-status" id="wl-status"></span>
-    </div>
-    <div class="wl-pills" id="wl-pills"><span class="wl-empty">Watchlist leer</span></div>
     <div class="toolbar">
-      <span class="meta" id="wl-meta">–</span>
-      <button class="btn primary" id="btn-wl" onclick="runScan('wl',false)">▶ Scan starten</button>
+      <div class="add">
+        <input id="wl-input" type="text" placeholder="Ticker, z. B. ADS.DE" autocomplete="off"
+               onkeydown="if(event.key==='Enter')addTicker()">
+        <button class="btn" onclick="addTicker()">Hinzufügen</button>
+        <span class="add-status" id="wl-status"></span>
+      </div>
+      <span class="meta r" id="wl-meta">–</span>
+      <button class="btn primary" id="btn-wl" onclick="runScan('wl',false)">Scan starten</button>
     </div>
-    <div class="results" id="res-wl"><div class="no-data">Noch kein Scan gelaufen.</div></div>
+    <div class="card" id="res-wl"><div class="no-data">Watchlist leer.</div></div>
   </div>
 
 </div>
+
+<div id="toast"><span id="toast-txt"></span><button id="toast-undo">Rückgängig</button></div>
 
 <script>
 "use strict";
 
 let watchlist = [];
+const data    = { stoxx: { results: [] }, wl: { results: [] } };
+const openRows = new Set();          // "stoxx|SYM" / "wl|SYM"
 let pollTimer = null;
+let stoxxFilter = 'all';
+try { stoxxFilter = localStorage.getItem('stoxxFilter') || 'all'; } catch {}
+
+// Filter der STOXX-Liste: jeweils nur Titel mit NEUEM Signal dieser Art
+const FILTERS = {
+  all:     () => true,
+  kauf:    h => h.arrows?.at(-1)?.direction === 'Kauf'    && isNew(h.arrows.at(-1).date, 'stoxx'),
+  verkauf: h => h.arrows?.at(-1)?.direction === 'Verkauf' && isNew(h.arrows.at(-1).date, 'stoxx'),
+  ma20:    h => isNew(h.trades?.at(-1)?.entryDate, 'stoxx'),
+};
+
+const ICON_CHART = '<svg viewBox="0 0 16 16"><path d="M2 2.5v11h12"/><path d="M4.5 10.5l3-3.5 2.5 2 3.5-4.5"/></svg>';
+const ICON_TRASH = '<svg viewBox="0 0 16 16"><path d="M2.5 4.5h11M6 4.5V3h4v1.5M4 4.5l.6 8.5h6.8l.6-8.5M6.7 7v3.5M9.3 7v3.5"/></svg>';
+
+// ── Helfer ───────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = n => typeof n === 'number'
+  ? n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '–';
+const pct = n => typeof n === 'number'
+  ? (n > 0 ? '+' : '') + n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' %' : '–';
+const dat = d => { const m = /^(\d{4})-(\d\d)-(\d\d)/.exec(d || ''); return m ? `${m[3]}.${m[2]}.${m[1].slice(2)}` : '–'; };
+const arrowHTML = a => `<span class="arr ${a.direction === 'Kauf' ? 'up' : 'down'}">${a.direction === 'Kauf' ? '▲' : '▼'}</span>${esc(a.direction)}`;
+const dist = n => n != null ? num(n).replace(/,00$/, '') + ' %' : '–';
+// "neu" = Signal in den letzten 5 Handelstagen (≈ 8 Kalendertage) vor dem Scan
+function isNew(d, which) {
+  const u = data[which].updatedAt;
+  if (!d || !u) return false;
+  const cut = new Date(u); cut.setDate(cut.getDate() - 8);
+  return d >= cut.toISOString().slice(0, 10);
+}
+const dateCell = (d, which) => isNew(d, which) ? `${dat(d)}<span class="new">neu</span>` : `<span class="old">${dat(d)}</span>`;
+const inWL = sym => watchlist.some(s => s.symbol === sym);
 
 // ── Tabs ─────────────────────────────────────────────────
-function switchTab(tab) {
-  ['stoxx','wl'].forEach(t => {
-    document.getElementById('pane-' + t).classList.toggle('active', t === tab);
-  });
-  document.querySelectorAll('.tab-btn').forEach((b, i) =>
-    b.classList.toggle('active', ['stoxx','wl'][i] === tab)
-  );
-}
+document.querySelector('.seg').addEventListener('click', e => {
+  const b = e.target.closest('button[data-tab]');
+  if (!b) return;
+  document.querySelectorAll('.seg button').forEach(x => x.classList.toggle('active', x === b));
+  ['stoxx', 'wl'].forEach(t => $('pane-' + t).classList.toggle('active', t === b.dataset.tab));
+});
+
+$('flt').addEventListener('click', e => {
+  const b = e.target.closest('button[data-f]');
+  if (!b) return;
+  stoxxFilter = b.dataset.f;
+  try { localStorage.setItem('stoxxFilter', stoxxFilter); } catch {}
+  render('stoxx');
+});
 
 // ── Scan ─────────────────────────────────────────────────
 async function runScan(which, testMode) {
-  const url = which === 'stoxx'
-    ? `/api/stoxx/run${testMode ? '?test=1' : ''}`
-    : '/api/watchlist/run';
-  const btnId = which === 'stoxx' ? 'btn-stoxx' : 'btn-wl';
-  document.getElementById(btnId).disabled = true;
-  if (which === 'stoxx') document.getElementById('btn-test').disabled = true;
-  await fetch(url, { method: 'POST' });
+  const url = which === 'stoxx' ? `/api/stoxx/run${testMode ? '?test=1' : ''}` : '/api/watchlist/run';
   setRunningUI(which, true);
+  await fetch(url, { method: 'POST' });
   startPoll(which);
 }
 
 function setRunningUI(which, running) {
-  const metaId = which === 'stoxx' ? 'stoxx-meta' : 'wl-meta';
-  const btnId  = which === 'stoxx' ? 'btn-stoxx' : 'btn-wl';
-  document.getElementById(btnId).disabled = running;
-  if (which === 'stoxx') document.getElementById('btn-test').disabled = running;
-  if (running)
-    document.getElementById(metaId).innerHTML = '<span class="pulse"></span>Scan läuft …';
+  $(which === 'stoxx' ? 'btn-stoxx' : 'btn-wl').disabled = running;
+  if (which === 'stoxx') $('btn-test').disabled = running;
+  if (running) $(which === 'stoxx' ? 'stoxx-meta' : 'wl-meta').innerHTML = '<span class="pulse"></span>Scan läuft …';
 }
 
 function startPoll(which) {
@@ -166,175 +246,205 @@ function startPoll(which) {
     if (!running) {
       clearInterval(pollTimer);
       pollTimer = null;
+      setRunningUI(which, false);
       loadResults(which);
-      document.getElementById(which === 'stoxx' ? 'btn-stoxx' : 'btn-wl').disabled = false;
-      if (which === 'stoxx') document.getElementById('btn-test').disabled = false;
     }
   }, 2000);
 }
 
-// ── Load Results ─────────────────────────────────────────
+// ── Daten laden ──────────────────────────────────────────
 async function loadResults(which) {
-  const url    = which === 'stoxx' ? '/api/stoxx' : '/api/watchlist/results';
-  const metaId = which === 'stoxx' ? 'stoxx-meta' : 'wl-meta';
-  const resId  = which === 'stoxx' ? 'res-stoxx'  : 'res-wl';
-  const data   = await fetch(url).then(r => r.json());
-  const hits   = data.results || [];
-
-  const date     = data.updatedAt ? new Date(data.updatedAt).toLocaleString('de-DE') : null;
-  const schedule = which === 'stoxx' ? ' · Di + Fr 20:00' : ' · manuell';
-  document.getElementById(metaId).textContent = date
-    ? `Letzter Scan: ${date}${schedule} · ${data.found} Treffer von ${data.total}`
-    : `Noch kein Scan${schedule}`;
-
-  renderHits(resId, hits, which);
+  const url = which === 'stoxx' ? '/api/stoxx' : '/api/watchlist/results';
+  data[which] = await fetch(url).then(r => r.json());
+  data[which].results = data[which].results || [];
+  render(which);
 }
 
-// ── Render ────────────────────────────────────────────────
-function renderHits(containerId, hits, which) {
-  const wrap = document.getElementById(containerId);
-  if (!hits.length) { wrap.innerHTML = '<div class="no-data">Keine Treffer.</div>'; return; }
-  wrap.innerHTML = hits.map(h => hitHTML(h, which)).join('');
+async function loadWatchlist() {
+  watchlist = await fetch('/api/watchlist').then(r => r.json());
 }
 
-function hitHTML(h, which) {
+// ── Darstellung ──────────────────────────────────────────
+function render(which) {
+  const d    = data[which];
+  const date = d.updatedAt ? new Date(d.updatedAt).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) : null;
+  let rows, meta;
+
+  if (which === 'stoxx') {
+    if (!FILTERS[stoxxFilter]) stoxxFilter = 'all';
+    document.querySelectorAll('#flt button').forEach(b => {
+      b.classList.toggle('active', b.dataset.f === stoxxFilter);
+      b.querySelector('.count').textContent = d.results.filter(FILTERS[b.dataset.f]).length;
+    });
+    rows = d.results.filter(FILTERS[stoxxFilter]);
+    meta = date ? `Letzter Scan ${date} · ${d.found} Treffer von ${d.total} · automatisch Di + Fr 20:00`
+                : 'Noch kein Scan · automatisch Di + Fr 20:00';
+    $('cnt-stoxx').textContent = d.results.length || '';
+  } else {
+    // Alle Watchlist-Titel zeigen; Scan-Ergebnis (falls vorhanden) dazumischen.
+    const bySym  = new Map(d.results.map(r => [r.symbol, r]));
+    const names  = new Map(data.stoxx.results.map(r => [r.symbol, r]));
+    rows = watchlist.map(s => {
+      const known = s.name && s.name !== s.symbol ? s : (names.get(s.symbol) || s);
+      const res = bySym.get(s.symbol);
+      return { symbol: s.symbol, name: known.name, index: known.index || s.index, close: res?.close,
+               trades: res?.trades || [], arrows: res?.arrows || [] };
+    });
+    const hits = rows.filter(r => isNew(r.trades.at(-1)?.entryDate, 'wl') || isNew(r.arrows.at(-1)?.date, 'wl')).length;
+    meta = date ? `Letzter Scan ${date} · ${hits} Titel mit neuem Signal von ${rows.length}`
+                : `${rows.length} Titel · noch kein Scan`;
+    $('cnt-wl').textContent = rows.length || '';
+  }
+
+  if (!$(which === 'stoxx' ? 'btn-stoxx' : 'btn-wl').disabled)
+    $(which === 'stoxx' ? 'stoxx-meta' : 'wl-meta').textContent = meta;
+
+  const wrap = $('res-' + which);
+  if (!rows.length) {
+    wrap.innerHTML = `<div class="no-data">${which === 'stoxx' ? (!date ? 'Noch kein Scan gelaufen.' : d.results.length ? 'Keine Treffer für diesen Filter.' : 'Keine Treffer.') : 'Watchlist leer.'}</div>`;
+    return;
+  }
+  wrap.innerHTML = `
+<table class="list">
+  <thead><tr>
+    <th>Ticker</th><th>Name</th><th>Index</th>
+    <th title="Kauf-/Verkaufspfeil wie im Chart (20-Tage-Ausbruch, nur das erste Signal nach einem Gegensignal)">Pfeil</th><th>Pfeil seit</th>
+    <th title="MA20-Signal">MA20</th><th>Einstieg</th>
+    <th class="r">Einstiegskurs</th><th class="r">Aktuell</th><th class="r">Differenz</th>
+    <th class="r" title="Abstand zum Signal">Abstand</th><th></th>
+  </tr></thead>
+  <tbody>${rows.map(h => rowHTML(h, which)).join('')}</tbody>
+</table>`;
+}
+
+function rowHTML(h, which) {
+  h.trades = h.trades || []; h.arrows = h.arrows || [];
   const last   = h.trades[h.trades.length - 1];
-  const isOpen = last?.open;
-  const dir    = last?.direction;
-  const bCls   = isOpen ? (dir === 'Long' ? 'bl' : 'bs') : 'bc';
-  const entryDate = last?.entryDate || '–';
-  const bTxt   = isOpen ? `${dir} offen · ${entryDate}` : `geschlossen · ${entryDate}`;
-  const sid    = safeId(h.symbol);
-  const inWL   = watchlist.some(s => s.symbol === h.symbol);
+  const arrow  = h.arrows[h.arrows.length - 1];
+  const key    = which + '|' + h.symbol;
+  const hasT   = h.trades.length > 0 || h.arrows.length > 0;
+  const name   = h.name && h.name !== h.symbol ? esc(h.name) : '<span class="muted">–</span>';
 
-  const addBtn = which === 'stoxx'
-    ? `<button class="wl-btn${inWL ? ' inWL' : ''}" id="wlb-${sid}"
-         onclick="event.stopPropagation();addFromStoxx('${esc(h.symbol)}','${esc(h.name)}','${esc(h.index)}')"
-       >${inWL ? '✓ WL' : '+ WL'}</button>`
-    : `<button class="wl-btn" style="color:#ef5350;border-color:#ef535033"
-         onclick="event.stopPropagation();removeTicker('${esc(h.symbol)}')"
-       >✕</button>`;
+  let sig = '<span class="muted">–</span>';
+  if (last) sig = last.open
+    ? `<span class="sig ${last.direction === 'Long' ? 'long' : 'short'}">${esc(last.direction)}</span>`
+    : '<span class="sig closed">geschlossen</span>';
 
-  const rows = h.trades.map(tradeRow).join('');
+  const on  = inWL(h.symbol);
+  const act = which === 'stoxx'
+    ? `<button class="ico wl${on ? ' on' : ''}" data-act="${on ? 'remove' : 'add'}"
+         title="${on ? 'Aus Watchlist entfernen' : 'Zur Watchlist hinzufügen'}">${on ? '✓ Watchlist' : '+ Watchlist'}</button>`
+    : `<button class="ico del" data-act="remove" title="Aus Watchlist löschen">${ICON_TRASH}</button>`;
+
+  const arrowCells = arrow
+    ? `<td>${arrowHTML(arrow)}</td><td>${dateCell(arrow.date, which)}</td>`
+    : '<td class="muted">–</td><td class="muted">–</td>';
+  const current = last ? last.exitPrice : h.close;
+  const cells = last
+    ? `<td>${dateCell(last.entryDate, which)}</td>
+       <td class="r">${num(last.entryPrice)}</td>
+       <td class="r">${num(current)}</td>
+       <td class="r ${last.diffPct >= 0 ? 'pos' : 'neg'}">${pct(last.diffPct)}</td>
+       <td class="r">${dist(last.signalDist)}</td>`
+    : `<td class="muted">–</td><td class="r muted">–</td><td class="r">${num(current)}</td><td class="r muted">–</td><td class="r muted">–</td>`;
 
   return `
-<div class="hit" id="hit-${sid}">
-  <div class="hit-hdr" onclick="toggleHit('${sid}')">
-    <span class="hit-sym">${h.symbol}</span>
-    <span class="hit-name">${h.name}</span>
-    <span class="hit-idx">${h.index}</span>
-    <span class="hit-badge ${bCls}">${bTxt}</span>
-    ${addBtn}
-    <button class="wl-btn" onclick="event.stopPropagation();openChart('${esc(h.symbol)}')" title="Chart öffnen">⬜</button>
-    <span class="hit-arr">▼</span>
-  </div>
-  <div class="hit-body">
-    <table class="trade-tbl">
-      <thead><tr>
-        <th>Datum Einstieg</th><th>Datum Ausstieg</th>
-        <th>Long / Short</th><th>Einstiegskurs</th>
-        <th>Ausstiegskurs</th><th>Differenz %</th><th>Abstand Signal</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-  </div>
-</div>`;
+<tr class="row${hasT ? '' : ' noexp'}${hasT && openRows.has(key) ? ' open' : ''}" data-sym="${esc(h.symbol)}" data-which="${which}">
+  <td class="c-sym"><span class="chev">${hasT ? '▶' : ''}</span>${esc(h.symbol)}</td>
+  <td class="c-name" title="${esc(h.name)}">${name}</td>
+  <td class="c-idx">${esc(h.index)}</td>
+  ${arrowCells}
+  <td>${sig}</td>
+  ${cells}
+  <td class="c-act"><span class="acts">
+    <button class="ico" data-act="chart" title="Chart öffnen">${ICON_CHART}</button>
+    ${act}
+  </span></td>
+</tr>
+${hasT ? `<tr class="detail"><td colspan="12"><div class="hist">
+  ${h.arrows.length ? `<div><h3>Pfeile</h3><table class="trades">
+    <thead><tr><th>Datum</th><th>Pfeil</th><th class="r">Kurs</th></tr></thead>
+    <tbody>${h.arrows.map(a => `<tr><td>${dat(a.date)}</td><td>${arrowHTML(a)}</td><td class="r">${num(a.price)}</td></tr>`).join('')}</tbody>
+  </table></div>` : ''}
+  ${h.trades.length ? `<div><h3>MA20-Trades</h3><table class="trades">
+    <thead><tr><th>Einstieg</th><th>Ausstieg</th><th>Richtung</th><th class="r">Einstiegskurs</th>
+      <th class="r">Ausstiegskurs</th><th class="r">Differenz</th><th class="r">Abstand Signal</th></tr></thead>
+    <tbody>${h.trades.map(tradeRow).join('')}</tbody>
+  </table></div>` : ''}
+  </div></td></tr>` : ''}`;
 }
 
 function tradeRow(t) {
-  const exitDate  = t.exitDate  || `<span style="color:#26a69a">offen<span class="open-tag">läuft</span></span>`;
-  const exitPrice = t.exitPrice != null ? num(t.exitPrice) : '–';
-  const dCls = t.direction === 'Long' ? 'long' : 'short';
-  const profitable = t.direction === 'Long'
-    ? t.exitPrice > t.entryPrice
-    : t.exitPrice < t.entryPrice;
-  const pCls = profitable ? 'pos' : 'neg';
-  const sign = t.diffPct >= 0 ? '+' : '';
-  const dist = t.signalDist != null ? `+${t.signalDist} %` : '–';
-  return `<tr class="${t.open ? 'is-open' : ''}">
-    <td>${t.entryDate}</td>
-    <td>${exitDate}</td>
-    <td class="${dCls}">${t.direction}</td>
-    <td>${num(t.entryPrice)}</td>
-    <td>${exitPrice}</td>
-    <td class="${pCls}">${sign}${t.diffPct} %</td>
-    <td class="pos">${dist}</td>
+  return `<tr>
+    <td>${dat(t.entryDate)}</td>
+    <td>${t.exitDate ? dat(t.exitDate) : '<span class="pos">offen</span>'}</td>
+    <td class="${t.direction === 'Long' ? 'dir-long' : 'dir-short'}">${esc(t.direction)}</td>
+    <td class="r">${num(t.entryPrice)}</td>
+    <td class="r">${num(t.exitPrice)}</td>
+    <td class="r ${t.diffPct >= 0 ? 'pos' : 'neg'}">${pct(t.diffPct)}</td>
+    <td class="r">${dist(t.signalDist)}</td>
   </tr>`;
 }
 
-function num(n) {
-  return typeof n === 'number'
-    ? n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
-    : n;
-}
-
-function toggleHit(id) {
-  document.getElementById('hit-' + id).classList.toggle('open');
-}
-
-function openChart(symbol) { window.open('/chart.html?symbol=' + encodeURIComponent(symbol), '_blank'); }
-function safeId(sym) { return sym.replace(/[^a-zA-Z0-9]/g, '-'); }
-function esc(s)      { return s.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
-
-// ── Watchlist ─────────────────────────────────────────────
-async function loadWatchlist() {
-  watchlist = await fetch('/api/watchlist').then(r => r.json());
-  renderPills();
-}
-
-function renderPills() {
-  const wrap = document.getElementById('wl-pills');
-  if (!watchlist.length) {
-    wrap.innerHTML = '<span class="wl-empty">Watchlist leer</span>';
+// ── Klicks in den Tabellen ───────────────────────────────
+document.addEventListener('click', e => {
+  const row = e.target.closest('tr.row');
+  if (!row) return;
+  const sym = row.dataset.sym, which = row.dataset.which;
+  const btn = e.target.closest('button[data-act]');
+  if (btn) {
+    if (btn.dataset.act === 'chart')  window.open('/chart.html?symbol=' + encodeURIComponent(sym), '_blank');
+    if (btn.dataset.act === 'remove') removeTicker(sym);
+    if (btn.dataset.act === 'add') {
+      const h = data.stoxx.results.find(r => r.symbol === sym);
+      postAdd({ symbol: sym, name: h?.name, index: h?.index });
+    }
     return;
   }
-  wrap.innerHTML = watchlist.map(s =>
-    `<div class="pill">
-      <span class="pill-sym">${s.symbol}</span>
-      <span class="pill-name">${s.name}</span>
-      <button class="pill-rm" onclick="openChart('${esc(s.symbol)}')" title="Chart" style="color:#2962ff">⬜</button>
-      <button class="pill-rm" onclick="removeTicker('${esc(s.symbol)}')" title="Entfernen">×</button>
-    </div>`
-  ).join('');
-}
+  if (row.classList.contains('noexp')) return;
+  const key = which + '|' + sym;
+  openRows.has(key) ? openRows.delete(key) : openRows.add(key);
+  row.classList.toggle('open');
+});
 
-async function addTicker() {
-  const inp = document.getElementById('wl-input');
-  const sym = inp.value.trim().toUpperCase();
-  if (!sym) return;
-  const st = document.getElementById('wl-status');
-  st.textContent = '…';
+// ── Watchlist ────────────────────────────────────────────
+async function postAdd(entry) {
   const r = await fetch('/api/watchlist/add', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ symbol: sym, name: sym, index: 'manuell' }),
+    body: JSON.stringify(entry),
   });
-  if (r.ok) {
-    inp.value = '';
-    st.textContent = `${sym} hinzugefügt`;
-    setTimeout(() => { st.textContent = ''; }, 2000);
-    await loadWatchlist();
-  } else {
-    st.textContent = 'Fehler';
-  }
+  if (r.ok) { await loadWatchlist(); render('stoxx'); render('wl'); }
+  return r.ok;
 }
 
-async function addFromStoxx(symbol, name, index) {
-  await fetch('/api/watchlist/add', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ symbol, name, index }),
-  });
-  await loadWatchlist();
-  const btn = document.getElementById('wlb-' + safeId(symbol));
-  if (btn) { btn.textContent = '✓ WL'; btn.classList.add('inWL'); }
+async function addTicker() {
+  const inp = $('wl-input'), st = $('wl-status');
+  const sym = inp.value.trim().toUpperCase();
+  if (!sym) return;
+  st.className = 'add-status';
+  if (inWL(sym)) { st.textContent = `${sym} ist bereits enthalten`; return; }
+  const known = data.stoxx.results.find(r => r.symbol === sym);
+  const ok = await postAdd({ symbol: sym, name: known?.name || sym, index: known?.index || 'manuell' });
+  if (ok) { inp.value = ''; st.textContent = `${sym} hinzugefügt`; setTimeout(() => { st.textContent = ''; }, 2500); }
+  else    { st.className = 'add-status err'; st.textContent = 'Fehler beim Hinzufügen'; }
 }
 
+let toastTimer = null;
 async function removeTicker(symbol) {
-  await fetch('/api/watchlist/' + encodeURIComponent(symbol), { method: 'DELETE' });
+  const entry = watchlist.find(s => s.symbol === symbol);
+  const r = await fetch('/api/watchlist/' + encodeURIComponent(symbol), { method: 'DELETE' });
+  if (!r.ok) return;
   await loadWatchlist();
-  await Promise.all([loadResults('stoxx'), loadResults('wl')]);
+  render('stoxx'); render('wl');
+  if (!entry) return;
+  $('toast-txt').textContent = `${symbol} aus der Watchlist gelöscht`;
+  $('toast-undo').onclick = async () => { hideToast(); await postAdd(entry); };
+  $('toast').classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(hideToast, 6000);
 }
+function hideToast() { $('toast').classList.remove('show'); }
 
 // ── Init ─────────────────────────────────────────────────
 async function init() {
@@ -345,7 +455,8 @@ async function init() {
   ]);
   if (ss.running) { setRunningUI('stoxx', true); startPoll('stoxx'); }
   if (ws.running) { setRunningUI('wl',    true); startPoll('wl'); }
-  await Promise.all([loadResults('stoxx'), loadResults('wl')]);
+  await loadResults('stoxx');
+  await loadResults('wl');
 }
 
 init();
