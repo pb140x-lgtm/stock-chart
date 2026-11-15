@@ -8,6 +8,7 @@
 // ─────────────────────────────────────────────────────────────
 const fs   = require("fs");
 const path = require("path");
+const { calcStats } = require("./verfolgung");
 
 const DATA_DIR   = path.join(__dirname, "data");
 const PUBLIC_DIR = path.join(__dirname, "public");
@@ -35,7 +36,9 @@ function flags(sec) {
   const inWin = i => i >= 0 && i < WINDOW;
 
   const high = inWin(closes.indexOf(Math.max(...closes))) || inWin(volumes.indexOf(Math.max(...volumes)));
-  const low  = inWin(closes.indexOf(Math.min(...closes))) || inWin(volumes.indexOf(Math.min(...volumes)));
+  // Tief wie in der Tabelle: Tage ohne Preis zählen nicht als Tief
+  const s    = calcStats(sec);
+  const low  = inWin(s.minCloseIdx) || inWin(s.minVolIdx);
   return { high, low };
 }
 

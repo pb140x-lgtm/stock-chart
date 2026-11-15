@@ -9,7 +9,7 @@
   *{margin:0;padding:0;box-sizing:border-box}
   body{background:#131722;color:#d1d4dc;font-family:'Trebuchet MS',sans-serif;display:flex;flex-direction:column;height:100vh;overflow:hidden}
 
-  #toolbar{display:flex;align-items:center;gap:10px;padding:7px 12px;background:#1e222d;border-bottom:1px solid #2a2e39;flex-shrink:0;flex-wrap:wrap}
+  #toolbar{display:flex;align-items:center;gap:10px;padding:7px 12px;background:#f2ecd2;border-bottom:1px solid #e4ddbf;flex-shrink:0;flex-wrap:wrap}
   /* Kürzel und Name: hinterlegt wie ein aktiver Schalter (z. B. SMA200) */
   #sym-label,#name-label{color:#2962ff;background:#1c2f7a30;padding:4px 8px;border-radius:3px;font-weight:600}
   #sym-label{font-size:14px;font-weight:700}
@@ -25,9 +25,9 @@
   .tf-btn:hover{color:#d1d4dc;background:#2a2e39}
   .tf-btn.active{color:#2962ff;background:#1c2f7a30}
 
-  .ind-toggle{background:#2a2e39;border:1px solid #363c4e;color:#787b86;padding:3px 8px;border-radius:3px;cursor:pointer;font-size:11px;font-weight:600}
-  .ind-toggle:hover{border-color:#787b86;color:#d1d4dc}
-  .ind-toggle.on{border-color:#2962ff55;color:#2962ff}
+  .ind-toggle{background:none;border:none;color:#787b86;padding:4px 8px;border-radius:3px;cursor:pointer;font-size:12px;font-weight:600}
+  .ind-toggle:hover{color:#d1d4dc;background:#2a2e39}
+  .ind-toggle.on{color:#2962ff;background:#1c2f7a30}
 
   #ohlc-bar{padding:2px 12px;background:#131722;font-size:11px;color:#787b86;display:flex;gap:14px;flex-shrink:0;height:18px}
   #ohlc-bar span b{color:#d1d4dc}
@@ -108,9 +108,9 @@ let seriesRsi, seriesRsiH, seriesRsiL;
 let seriesMacdLine, seriesMacdSig, seriesMacdHist;
 
 const COLORS = {
-  dcUp:   "#2962ff55",
-  dcLo:   "#2962ff55",
-  dcMid:  "#2962ff88",
+  dcUp:   "#26a69a",
+  dcLo:   "#ef5350",
+  dcMid:  "#000000",
   sma20:  "#fbbf24",
   sma50:  "#f59e0b",
   sma100: "#a78bfa",
@@ -138,14 +138,17 @@ function calcDonchian(candles, period) {
 
 function calcTurtleSignals(candles, period = 20) {
   const markers = [];
+  let pos = 0; // 0 = flat, 1 = long (eingetreten), -1 = short (ausgetreten)
   for (let i = period; i < candles.length; i++) {
     const prev  = candles.slice(i - period, i);
     const prevH = Math.max(...prev.map(c => c.high));
     const prevL = Math.min(...prev.map(c => c.low));
-    if (candles[i].close > prevH) {
-      markers.push({ time: candles[i].time, position: "belowBar", color: "#ffffff", shape: "arrowUp",   size: 1.5 });
-    } else if (candles[i].close < prevL) {
-      markers.push({ time: candles[i].time, position: "aboveBar", color: "#60a5fa", shape: "arrowDown", size: 1.5 });
+    if (candles[i].close > prevH && pos !== 1) {
+      markers.push({ time: candles[i].time, position: "belowBar", color: "#2563eb", shape: "arrowUp",   size: 2 });
+      pos = 1;
+    } else if (candles[i].close < prevL && pos !== -1) {
+      markers.push({ time: candles[i].time, position: "aboveBar", color: "#000000", shape: "arrowDown", size: 2 });
+      pos = -1;
     }
   }
   return markers;
@@ -173,7 +176,8 @@ function calcSMA(candles, period) {
 }
 
 function calcRSI(candles, period = 14) {
-  const result = [];
+  // Whitespace padding so bar indices align with candles (logical range sync)
+  const result = candles.slice(0, period).map(c => ({ time: c.time }));
   let avgGain = 0, avgLoss = 0;
   for (let i = 1; i < candles.length; i++) {
     const diff = candles[i].close - candles[i - 1].close;
@@ -229,13 +233,20 @@ function calcMACD(candles, fast = 12, slow = 26, sig = 9) {
       hist.push({ time: m.time, value: h, color: h >= 0 ? COLORS.histUp : COLORS.histDn });
     }
   });
-  return { macdLine, sigLine, hist };
+  // Whitespace padding so bar indices align with candles (logical range sync)
+  const warmup = candles.length - macdLine.length;
+  const pad = candles.slice(0, warmup).map(c => ({ time: c.time }));
+  return {
+    macdLine: [...pad, ...macdLine],
+    sigLine:  [...pad, ...sigLine],
+    hist:     [...pad, ...hist],
+  };
 }
 
 // ── Build charts ─────────────────────────────────────────
 const BASE_OPTS = {
-  layout:      { background: { color: "#131722" }, textColor: "#787b86" },
-  grid:        { vertLines: { color: "#1e222d" }, horzLines: { color: "#1e222d" } },
+  layout:      { background: { color: "#f4f3ef" }, textColor: "#787b86" },
+  grid:        { vertLines: { color: "#e6e5e0" }, horzLines: { color: "#e6e5e0" } },
   crosshair:   { mode: LightweightCharts.CrosshairMode.Normal },
   rightPriceScale: { borderColor: "#2a2e39" },
   timeScale:   { borderColor: "#2a2e39", timeVisible: true, secondsVisible: false },
@@ -265,21 +276,21 @@ function buildCharts() {
     borderUpColor: "#26a69a", borderDownColor: "#ef5350",
     wickUpColor: "#26a69a", wickDownColor: "#ef5350",
   });
-  seriesDcUp  = chartMain.addLineSeries({ color: COLORS.dcUp,  lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
-  seriesDcLo  = chartMain.addLineSeries({ color: COLORS.dcLo,  lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+  seriesDcUp  = chartMain.addLineSeries({ color: COLORS.dcUp,  lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
+  seriesDcLo  = chartMain.addLineSeries({ color: COLORS.dcLo,  lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
   seriesDcMid = chartMain.addLineSeries({ color: COLORS.dcMid, lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false });
-  seriesSma20  = chartMain.addLineSeries({ color: COLORS.sma20,  lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
-  seriesSma50  = chartMain.addLineSeries({ color: COLORS.sma50,  lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+  seriesSma20  = chartMain.addLineSeries({ color: COLORS.sma20,  lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
+  seriesSma50  = chartMain.addLineSeries({ color: COLORS.sma50,  lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
   seriesSma100 = chartMain.addLineSeries({ color: COLORS.sma100, lineWidth: 1, visible: layerState.sma100, priceLineVisible: false, lastValueVisible: false });
   seriesSma200 = chartMain.addLineSeries({ color: COLORS.sma200, lineWidth: 1, visible: layerState.sma200, priceLineVisible: false, lastValueVisible: false });
 
-  seriesRsi  = chartRsi.addLineSeries({ color: COLORS.rsi,    lineWidth: 1, priceLineVisible: false });
+  seriesRsi  = chartRsi.addLineSeries({ color: COLORS.rsi,    lineWidth: 2, priceLineVisible: false });
   seriesRsiH = chartRsi.addLineSeries({ color: COLORS.rsiRef, lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false });
   seriesRsiL = chartRsi.addLineSeries({ color: COLORS.rsiRef, lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false });
 
   seriesMacdHist = chartMacd.addHistogramSeries({ priceLineVisible: false, lastValueVisible: false });
   seriesMacdLine = chartMacd.addLineSeries({ color: COLORS.macd, lineWidth: 1, priceLineVisible: false });
-  seriesMacdSig  = chartMacd.addLineSeries({ color: COLORS.sig,  lineWidth: 1, priceLineVisible: false });
+  seriesMacdSig  = chartMacd.addLineSeries({ color: COLORS.sig,  lineWidth: 2, priceLineVisible: false });
 
   syncCharts();
   syncCrosshair();
@@ -330,29 +341,24 @@ function populateCharts(candles) {
   seriesCandle.setMarkers(calcTurtleSignals(candles));
 
   updateLegend();
-  // Nur Hauptchart fitContent — Sub-Charts folgen via Sync
-  chartMain.timeScale().fitContent();
+  // Defer fitContent so the chart has finished its first render cycle
+  requestAnimationFrame(() => chartMain.timeScale().fitContent());
 }
 
 // ── Sync scroll ───────────────────────────────────────────
 function syncCharts() {
   let busy = false;
-  function onRange(src, range) {
-    if (busy || !range) return;
-    busy = true;
-    const ts   = src.timeScale();
-    const from = ts.coordinateToTime(ts.logicalToCoordinate(range.from));
-    const to   = ts.coordinateToTime(ts.logicalToCoordinate(range.to));
-    if (from && to) {
-      [chartMain, chartRsi, chartMacd].forEach(dst => {
-        if (dst !== src) try { dst.timeScale().setVisibleRange({ from, to }); } catch (_) {}
+  const charts = [chartMain, chartRsi, chartMacd];
+  charts.forEach(src => {
+    src.timeScale().subscribeVisibleLogicalRangeChange(range => {
+      if (busy || !range) return;
+      busy = true;
+      charts.forEach(dst => {
+        if (dst !== src) try { dst.timeScale().setVisibleLogicalRange(range); } catch (_) {}
       });
-    }
-    busy = false;
-  }
-  chartMain.timeScale().subscribeVisibleLogicalRangeChange(r => onRange(chartMain, r));
-  chartRsi .timeScale().subscribeVisibleLogicalRangeChange(r => onRange(chartRsi,  r));
-  chartMacd.timeScale().subscribeVisibleLogicalRangeChange(r => onRange(chartMacd, r));
+      busy = false;
+    });
+  });
 }
 
 // ── Crosshair sync ────────────────────────────────────────

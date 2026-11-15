@@ -88,6 +88,7 @@ input.sym-inp::placeholder{color:#b0bac8}
   <button class="btn primary" onclick="newTable()">+ Neue Tabelle</button>
   <button class="btn" onclick="manualUpdate()" id="btn-update" title="Alle Kurse jetzt aktualisieren">↻ Update</button>
   <span class="status-msg" id="status"></span>
+  <span class="update-badge" id="stand" style="font-size:12px"></span>
 </div>
 
 <div id="content">
@@ -108,7 +109,22 @@ async function init() {
 async function loadTables() {
   const data = await api("GET", "/api/verfolgung/tables");
   DB = data;
+  showStand();
   render();
+}
+
+// Datenstand im Kopf: Zeitpunkt des letzten Kurs-Updates (sonst jüngster Kurstag)
+function showStand() {
+  const el = document.getElementById("stand");
+  if (!el) return;
+  if (DB.updatedAt) {
+    el.textContent = "Kurse aktualisiert: " + new Date(DB.updatedAt).toLocaleString("de-DE",
+      { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+    return;
+  }
+  const tage = (DB.tables || []).flatMap(t => t.securities.map(s => s.data[0]?.date)).filter(Boolean).sort();
+  const d = tage[tage.length - 1];
+  el.textContent = d ? "Kurse bis: " + d.split("-").reverse().join(".") : "";
 }
 
 // ── Render ────────────────────────────────────────────────

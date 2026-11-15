@@ -6,6 +6,7 @@ const cron    = require("node-cron");
 const { runScreener }              = require("./screener-trades");
 const { registerRoutes, dailyUpdate, rebound } = require("./verfolgung");
 const { generateReport }           = require("./bericht");
+const { generateGreenReport }      = require("./gruen-bericht");
 
 const app  = express();
 const PORT = 3000;
@@ -154,6 +155,16 @@ app.post("/api/bericht/generate", (_req, res) => {
 app.get("/bericht", (_req, res) => {
   try {
     const r = generateReport();
+    res.redirect("/" + r.file);
+  } catch (e) {
+    res.status(500).send("Bericht-Fehler: " + e.message);
+  }
+});
+
+// Grün-Bericht: grüne Preisfelder der letzten 2 Tage (erzeugt die heutige Datei und öffnet sie)
+app.get("/gruen-bericht", (_req, res) => {
+  try {
+    const r = generateGreenReport();
     res.redirect("/" + r.file);
   } catch (e) {
     res.status(500).send("Bericht-Fehler: " + e.message);
