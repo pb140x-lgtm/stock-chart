@@ -141,6 +141,9 @@ registerRoutes(app);
 // ── Rebound ────────────────────────────────────────────────
 rebound.registerRoutes(app);
 
+// ── Bestandsentwicklung ────────────────────────────────────
+require("./bestand").registerRoutes(app);
+
 // ── Bericht (rote & grüne Felder, letzte 5 Tage) ───────────
 app.post("/api/bericht/generate", (_req, res) => {
   try {

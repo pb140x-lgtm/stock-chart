@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bestandsentwicklung</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#eef1f5;color:#1a1a2e;font-family:'Trebuchet MS',sans-serif;min-height:100vh}
+
+/* Header (wie Verfolgung) */
+#hdr{background:#f0f4f8;border-bottom:1px solid #d0d7e2;padding:8px 14px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
+#hdr h1{font-size:14px;font-weight:700}
+.tab-btn{background:none;border:none;color:#5a6a7e;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;text-decoration:none}
+.tab-btn:hover{color:#1a1a2e;background:#dde3ec}
+.btn{background:#fff;border:1px solid #c4cdd8;color:#1a1a2e;padding:4px 11px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600}
+.btn:hover:not(:disabled){border-color:#5a6a7e;background:#f0f4f8}
+.btn.primary{border-color:#1a56cc;color:#1a56cc}
+.btn.primary:hover{background:#e8f0fd}
+.btn.danger{border-color:#cc3333;color:#cc3333}
+.btn.danger:hover{background:#fdecea}
+.btn.small{font-size:10px;padding:1px 7px}
+.status-msg{font-size:11px;color:#1a7a5e}
+.status-msg.err{color:#c0392b}
+.update-badge{font-size:11px;color:#8a9ab0;margin-left:auto}
+
+#content{padding:14px}
+h2.sec-title{font-size:12px;font-weight:700;color:#5a6a7e;text-transform:uppercase;letter-spacing:.04em;margin:4px 0 8px}
+
+/* Parameter */
+.params{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;font-size:11px;color:#5a6a7e;margin-bottom:16px;background:#f7f9fc;border:1px solid #d0d7e2;border-radius:6px;padding:8px 12px}
+.params label{display:flex;align-items:center;gap:6px}
+.params .hint{color:#8a9ab0}
+
+/* Eingaben sind blau umrandet (wie Einstand in der Verfolgung) */
+input.inp{background:#fff;border:1px solid #1a56cc;color:#1a1a2e;padding:2px 5px;border-radius:3px;font-size:11px;text-align:right;outline:none;font-family:inherit}
+input.inp[type=date]{text-align:left;width:118px}
+input.inp.w50{width:50px}
+input.inp.w64{width:64px}
+input.inp.w80{width:80px}
+input.inp.txt{text-align:left;width:150px}
+input.inp::placeholder{color:#b0bac8}
+
+/* Gruppe */
+.tbl-group{margin-bottom:24px;border:1px solid #d0d7e2;border-radius:6px;overflow:hidden;background:#fff}
+.tbl-group.closed{opacity:.85}
+.tbl-head{background:#f0f4f8;padding:8px 12px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #d0d7e2;flex-wrap:wrap}
+.tbl-name{font-size:13px;font-weight:700;cursor:pointer;padding:2px 4px;border-radius:3px}
+.tbl-name:hover{background:#dde3ec}
+.grp-nr{font-size:10px;font-weight:700;color:#fff;background:#5a6a7e;border-radius:3px;padding:1px 6px}
+.sym{font-size:10px;color:#787b86}
+.curr{color:#1a56cc;font-size:10px;font-weight:700}
+.badge{font-size:10px;font-weight:700;border-radius:3px;padding:1px 6px}
+.badge.alarm{background:#fde8e8;color:#c0392b}
+.badge.buy{background:#d6f0e0;color:#1a7a5e}
+.badge.closed{background:#e4e9f0;color:#5a6a7e}
+.head-actions{margin-left:auto;display:flex;gap:6px}
+
+/* Gruppenzusammenfassung */
+.summary{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:0;border-bottom:1px solid #d0d7e2}
+.kpi{padding:7px 12px;border-right:1px solid #e4e9f0;border-bottom:1px solid #e4e9f0}
+.kpi .lbl{font-size:10px;color:#8a9ab0}
+.kpi .val{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.kpi .sub{font-size:10px;color:#7a8a9e}
+.kpi.key{background:#f7f9fc}
+
+/* Tabellen */
+.sec-wrap{overflow-x:auto}
+table.sec-tbl{border-collapse:collapse;font-size:11px;white-space:nowrap;min-width:100%}
+table.sec-tbl td,table.sec-tbl th{padding:3px 7px;border-right:1px solid #e4e9f0;text-align:right;font-variant-numeric:tabular-nums}
+table.sec-tbl tr{border-bottom:1px solid #e4e9f0}
+table.sec-tbl th{background:#f7f9fc;color:#5a6a7e;font-size:10px;font-weight:600;white-space:normal;vertical-align:bottom;line-height:1.2}
+table.sec-tbl td.l,table.sec-tbl th.l{text-align:left}
+table.sec-tbl td.c,table.sec-tbl th.c{text-align:center}
+table.sec-tbl tr.buy-row{cursor:pointer}
+table.sec-tbl tr.buy-row.alt td,table.sec-tbl tr.alt td{background:#f3f6fa}
+table.sec-tbl tr.buy-row:hover td{background:#e6ecf5}
+table.sec-tbl tr.editing td{background:#e8f0fd}
+table.sec-tbl tr.part-sale td:first-child{color:#c0392b;font-weight:700}
+/* Alarmfarben wie in der Vorlage (bedingte Formatierung) */
+table.sec-tbl tr.buy-row td.c-alarm,.kpi.c-alarm{background:#fce5cd}
+table.sec-tbl tr.buy-row td.c-buy,.kpi.c-buy{background:#d9ead3}
+table.sec-tbl tr.sale-row td{background:#f7f9fc;font-weight:700}
+table.sec-tbl tr.add-row td{background:#f7f9fc;padding:5px 7px}
+table.sec-tbl tr.total td{font-weight:700;background:#f0f4f8}
+.th-act{background:#eef3fb !important}
+.muted{color:#b0bac8}
+.txt-neg{color:#c0392b}
+.txt-pos{color:#1a7a5e}
+.bg-min{background:#fde8e8}
+.bg-max{background:#d6f0e0}
+
+.add-group{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
+.add-group.inner{margin:0;padding:8px 12px;background:#f7f9fc;border:1px dashed #c4cdd8;border-radius:6px}
+select.sel{background:#fff;border:1px solid #c4cdd8;color:#1a1a2e;font-size:11px;padding:2px 4px;border-radius:3px;font-family:inherit}
+/* Konto (Gruppe) */
+.acct{border:1px solid #b8c4d4;border-radius:8px;margin-bottom:28px;background:#e7ecf3;overflow:hidden}
+.acct-head{background:#dde3ec;padding:9px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid #b8c4d4}
+.acct-name{font-size:15px;font-weight:700;cursor:pointer;padding:2px 4px;border-radius:3px}
+.acct-name:hover{background:#ccd5e2}
+.acct-sub{font-size:11px;color:#5a6a7e}
+.acct .summary.acct-sum{background:#fff;border-bottom:1px solid #b8c4d4}
+.acct-body{padding:12px}
+.acct-body .tbl-group{margin-bottom:14px}
+.acct-empty{font-size:12px;color:#8a9ab0;padding:4px 2px 12px}
+.empty-hint{color:#8a9ab0;font-size:12px;padding:20px 0}
+.year-box{border:1px solid #d0d7e2;border-radius:6px;overflow:hidden;background:#fff;margin-bottom:24px}
+.note{font-size:10px;color:#8a9ab0;padding:6px 12px}
+</style>
+</head>
+<body>
+
+<div id="hdr">
+  <h1>Bestandsentwicklung</h1>
+  <a href="/" class="tab-btn">← Screener</a>
+  <a href="/verfolgung.html" class="tab-btn">Verfolgung</a>
+  <button class="btn" id="btn-reload" onclick="load()" title="Kurse und Devisenkurse neu laden">↻ Kurse</button>
+  <span class="status-msg" id="status"></span>
+  <span class="update-badge" id="stand"></span>
+</div>
+
+<div id="content">
+  <div class="params" id="params"></div>
+
+  <div class="add-group">
+    <input class="inp txt" id="na-name" placeholder="Name des Kontos" onkeydown="if(event.key==='Enter')addAccount()">
+    <input class="inp w50" id="na-cur" placeholder="EUR" title="Kontowährung, z.B. EUR, USD, CHF" style="text-align:left" onkeydown="if(event.key==='Enter')addAccount()">
+    <button class="btn primary" onclick="addAccount()">+ Neues Konto</button>
+    <span class="status-msg" id="na-st"></span>
+  </div>
+
+  <div class="empty-hint" id="empty-hint" style="display:none">Noch kein Konto angelegt.</div>
+  <div id="accounts"></div>
+
+  <h2 class="sec-title" style="display:flex;align-items:center;gap:10px">Jahreszusammenfassung
+    <select class="sel" id="year-filter" onchange="yearFilter=this.value;renderYears()"></select></h2>
+  <div class="year-box" id="years"></div>
+</div>
+
+<script>
+"use strict";
+
+let DB = null;
+const editing = {};   // gid → bid des Kaufs, der gerade bearbeitet wird
+let yearFilter = "";  // Jahreszusammenfassung: "" = alle Konten, sonst Konto-ID
+
+// ── Rechnen (wie die Vorlage „Bestandsentwicklung“) ─────────────────
+// Devisenkurs-Notierung: 1 € = x Fremdwährung. Jeder Kauf wird mit dem Tageskurs
+// seines Eintrags in Euro umgerechnet; das aktuelle Ergebnis mit dem aktuellen Kurs.
+const round2   = x => Math.round((x + Number.EPSILON) * 100) / 100;
+const roundup2 = x => Math.ceil(Math.round(x * 1e6) / 1e4) / 100;   // ROUNDUP(ROUND(x;6);2)
+
+function calcGroup(g) {
+  const S = DB.settings;
+  const rows = [];
+  let J = 0, K = 0, nrKauf = -1, prev = null;
+  let realTeil = 0, erloesTeil = 0, einstandTeil = 0;
+  g.buys.forEach(b => {
+    const rate = g.currency === "EUR" ? 1 : b.fx;
+    const H = b.stueck * b.kurs;            // Wert in Währung
+    const I = H / rate;                     // Wert in Euro (Tageskurs)
+
+    // Teilverkauf (negative Stückzahl): Abgang zum Ø-Kurs, Ø-Kurs, Alarm- und
+    // Nachkaufpreis bleiben; realisiert = Erlös (Tageskurs) − anteiliger Einstand
+    if (b.stueck < 0 && prev) {
+      const st = -b.stueck, einstand = st * prev.L, erloes = -I, real = erloes - einstand;
+      J -= st; K -= einstand;
+      realTeil += real; erloesTeil += erloes; einstandTeil += einstand;
+      rows.push(prev = { b, nr: "TV", sale: true, rate, H, I, J, K, L: prev.L, M: prev.M,
+        art: prev.art, O: prev.O, MF: round2(prev.M * rate), OF: round2(prev.O * rate),
+        P: K * S.minErtrag, Q: prev.M * J - K, real, einstand, erloes });
+      return;
+    }
+    const i = ++nrKauf;
+    J += b.stueck; K += I;
+    const L = K / J;                        // Ø-Kurs in Euro
+    const kursEUR = b.kurs / rate;          // Kaufkurs in Euro (Tageskurs)
+    // Alarm- und Nachkaufpreis werden in Euro gerechnet (wie die Vorlage)
+    const gesichert = kursEUR > L * (1 + S.minErtrag);
+    const M = gesichert ? roundup2(L * (1 + S.minErtrag)) : round2(L * (1 - S.verlust));
+    const O = round2(kursEUR * (1 + (i === 0 ? S.abstand1 : S.abstandN)));
+    const P = K * S.minErtrag;
+    const Q = M * J - K;                     // Ergebnis am Alarmpreis in Euro
+    // Fremdwährungs-Alarmkurse: aus den Euro-Werten mit dem Devisenkurs dieser Zeile
+    const MF = round2(M * rate), OF = round2(O * rate);
+    rows.push(prev = { b, nr: i, rate, H, I, J, K, L, M, MF, art: gesichert ? "Gewinnsicherung" : "Verlustbegrenzung", O, OF, P, Q });
+  });
+  const last = rows[rows.length - 1] || null;
+  const q = DB.quotes[g.yahooSymbol];
+  const fxNow = g.currency === "EUR" ? 1 : DB.fx[g.currency];
+  const r = { rows, last, price: q ? q.price : null, fxNow: fxNow || null, realTeil, erloesTeil, einstandTeil };
+  r.anzTeil = rows.filter(x => x.sale).length;
+  r.investiert = rows.filter(x => !x.sale).reduce((s, x) => s + x.I, 0);
+  r.frei = S.maxNachkauf - Math.max(0, nrKauf);
+  if (last && r.price != null && r.fxNow) {
+    r.wert = r.price * last.J / r.fxNow;
+    r.ergebnis = r.wert - last.K;
+    r.priceEUR = r.price / r.fxNow;
+    r.abstandAlarm = (r.priceEUR - last.M) / r.priceEUR;
+    r.alarm = r.priceEUR < last.M;                     // Vorlage: R < M → akt. Preis hellorange
+    r.nachkauf = r.priceEUR > last.O && r.frei > 0;    // Vorlage: R > O → Nachkaufpreis hellgrün
+  }
+  if (last && r.fxNow) {                               // Fremdwährungs-Alarmkurse zum aktuellen Devisenkurs
+    r.alarmFW = round2(last.M * r.fxNow);
+    r.nachkaufFW = round2(last.O * r.fxNow);
+  }
+  if (g.sale && last) {
+    const rate = g.currency === "EUR" ? 1 : g.sale.fx;
+    r.erloes = g.sale.kurs * last.J / rate;
+    r.realisiert = r.erloes - last.K;          // nur der Schlussverkauf
+  }
+  r.realGesamt = (r.realisiert || 0) + realTeil;
+  return r;
+}
+
+// ── Laden ────────────────────────────────────────────────────────
+async function load() {
+  setStatus("Lade Kurse …");
+  try {
+    DB = await api("GET", "/api/bestand");
+    setStatus(DB.errors && DB.errors.length ? "Kurs fehlt: " + DB.errors.join(", ") : "", !!(DB.errors && DB.errors.length));
+    document.getElementById("stand").textContent = "Kurse geladen: " +
+      new Date(DB.loadedAt).toLocaleString("de-DE", { day:"2-digit", month:"2-digit", year:"2-digit", hour:"2-digit", minute:"2-digit" });
+    render();
+  } catch (e) { setStatus("Fehler: " + e.message, true); }
+}
+
+function render() {
+  renderParams();
+  document.getElementById("empty-hint").style.display = DB.accounts.length ? "none" : "";
+  const counter = {};
+  document.getElementById("accounts").innerHTML = DB.accounts.map(a => {
+    const groups = DB.groups.filter(g => g.accountId === a.id);
+    const html = groups.map(g => {
+      const k = a.id + "|" + g.yahooSymbol;
+      counter[k] = (counter[k] || 0) + 1;
+      return renderGroup(g, counter[k]);
+    }).join("");
+    return renderAccount(a, groups, html);
+  }).join("");
+  if (yearFilter && !DB.accounts.some(a => a.id === yearFilter)) yearFilter = "";
+  document.getElementById("year-filter").innerHTML = `<option value="">Alle Konten</option>` +
+    DB.accounts.map(a => `<option value="${a.id}"${a.id === yearFilter ? " selected" : ""}>${esc(a.name)}</option>`).join("");
+  renderYears();
+}
+
+// Summen über mehrere Wertpapiere (Konto oder alles)
+function aggregate(groups) {
+  const years = {};
+  const Y = y => (years[y] = years[y] || { kaeufe: 0, invest: 0, verkaeufe: 0, erloes: 0, kosten: 0, real: 0 });
+  const a = { years, offenAnz: 0, zuAnz: 0, offenInvest: 0, offenWert: 0, offenFehlt: false, real: 0, alarme: 0, nachkauf: 0 };
+  for (const g of groups) {
+    const c = calcGroup(g);
+    c.rows.forEach(r => {
+      const y = Y(yearOf(r.b.date));
+      if (r.sale) { y.verkaeufe++; y.erloes += r.erloes; y.kosten += r.einstand; y.real += r.real; }
+      else { y.kaeufe++; y.invest += r.I; }
+    });
+    a.real += c.realGesamt;
+    if (g.sale && c.last) {
+      a.zuAnz++;
+      const y = Y(yearOf(g.sale.date)); y.verkaeufe++; y.erloes += c.erloes; y.kosten += c.last.K; y.real += c.realisiert;
+    } else if (c.last) {
+      a.offenAnz++; a.offenInvest += c.last.K;
+      if (c.wert != null) a.offenWert += c.wert; else a.offenFehlt = true;
+      if (c.alarm) a.alarme++;
+      if (c.nachkauf) a.nachkauf++;
+    }
+  }
+  a.offenErg = a.offenWert - a.offenInvest;
+  return a;
+}
+
+function renderAccount(a, groups, html) {
+  const s = aggregate(groups);
+  const kpi = (lbl, val, sub = "", cls = "") =>
+    `<div class="kpi"><div class="lbl">${lbl}</div><div class="val ${cls}">${val}</div><div class="sub">${sub}</div></div>`;
+  const badges = (s.alarme ? `<span class="badge alarm">${s.alarme}× Alarmpreis erreicht</span>` : "") +
+                 (s.nachkauf ? `<span class="badge buy">${s.nachkauf}× Nachkauf möglich</span>` : "");
+  return `<div class="acct">
+    <div class="acct-head">
+      <span class="acct-name" ondblclick="renameAccount('${a.id}')" title="Doppelklick: umbenennen">${esc(a.name)}</span>
+      <span class="curr" style="cursor:pointer" ondblclick="changeAccountCur('${a.id}')" title="Kontowährung – Doppelklick: ändern">${esc(a.currency)}</span>
+      <span class="acct-sub">${s.offenAnz} offen${s.zuAnz ? ` · ${s.zuAnz} verkauft` : ""}</span>
+      ${badges}
+      <span class="head-actions"><button class="btn danger small" onclick="delAccount('${a.id}')">✕ Konto</button></span>
+    </div>
+    <div class="summary acct-sum">
+      ${kpi("Investiert offen €", fmt(s.offenInvest))}
+      ${kpi("Wert aktuell €", s.offenFehlt ? "–" : fmt(s.offenWert))}
+      ${kpi("Ergebnis offen €", s.offenFehlt ? "–" : fmtSigned(s.offenErg), s.offenFehlt || !s.offenInvest ? "" : pct(s.offenErg / s.offenInvest), s.offenFehlt ? "" : sign(s.offenErg))}
+      ${kpi("Realisiert gesamt €", fmtSigned(s.real), "", sign(s.real))}
+    </div>
+    <div class="acct-body">
+      ${html || `<div class="acct-empty">Noch kein Wertpapier in diesem Konto.</div>`}
+      <div class="add-group inner">
+        <input class="inp txt" id="ng-sym-${a.id}" placeholder="Yahoo-Kürzel, z.B. BAYN.DE" onkeydown="if(event.key==='Enter')addGroup('${a.id}')">
+        <input class="inp txt" id="ng-name-${a.id}" placeholder="Name (optional)" onkeydown="if(event.key==='Enter')addGroup('${a.id}')">
+        <button class="btn primary small" onclick="addGroup('${a.id}')">+ Wertpapier</button>
+        <span class="status-msg" id="ng-st-${a.id}"></span>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderParams() {
+  const S = DB.settings;
+  const p = (k, label, hint, pct = true) => `<label>${label}
+    <input class="inp w50" value="${pct ? fmt(S[k] * 100, 1) : S[k]}" data-k="${k}" data-pct="${pct ? 1 : ""}"
+      onchange="saveParam(this)"> ${pct ? "%" : ""}<span class="hint">${hint}</span></label>`;
+  document.getElementById("params").innerHTML =
+    p("minErtrag", "Mindestertrag", "auf die Investitionssumme") +
+    p("verlust", "Verlustgrenze", "unter Ø-Kurs, solange kein Mindestertrag gesichert") +
+    p("abstand1", "Abstand 1. Nachkauf", "zum Erstkauf") +
+    p("abstandN", "Abstand ab 2. Nachkauf", "zum vorherigen Kauf") +
+    p("maxNachkauf", "Nachkäufe max.", "", false);
+}
+
+function renderGroup(g, nr) {
+  const c = calcGroup(g);
+  const L = c.last;
+  const cur = g.currency;
+  const closed = !!g.sale;
+
+  const badges = closed ? `<span class="badge closed">geschlossen ${fmtDate(g.sale.date)}</span>`
+    : (c.alarm ? `<span class="badge alarm">Alarmpreis erreicht</span>` : "") +
+      (c.nachkauf ? `<span class="badge buy">Nachkauf möglich</span>` : "");
+
+  const kpi = (lbl, val, sub = "", key = false, cls = "", box = "") =>
+    `<div class="kpi${key ? " key" : ""}${box ? " " + box : ""}"><div class="lbl">${lbl}</div><div class="val ${cls}">${val}</div><div class="sub">${sub}</div></div>`;
+
+  const summary = !L ? "" : `<div class="summary">
+    ${closed
+      ? kpi("Verkauf", fmt(g.sale.kurs) + " " + cur, fmtDate(g.sale.date) + (cur !== "EUR" ? " · Devisenkurs " + fmt(g.sale.fx, 4) : ""), true) +
+        kpi("Erlös €", fmt(c.erloes + c.erloesTeil), c.anzTeil ? `davon Teilverkäufe ${fmt(c.erloesTeil)}` : "", true) +
+        kpi("Realisiert €", fmtSigned(c.realGesamt), pct(c.realGesamt / c.investiert), true, sign(c.realGesamt))
+      : kpi("Aktueller Alarmpreis", fmt(L.M) + " EUR", L.art, true, L.art === "Gewinnsicherung" ? "txt-pos" : "txt-neg") +
+        kpi("Nächster Nachkauf ab", c.frei > 0 ? fmt(L.O) + " EUR" : "–", c.frei > 0 ? "" : "keine freien Nachkäufe", true, "", c.nachkauf ? "c-buy" : "") +
+        (cur === "EUR" ? "" :
+          kpi("Alarmpreis " + cur, c.alarmFW != null ? fmt(c.alarmFW) + " " + cur : "–", "zum akt. Devisenkurs", true, "", c.alarm ? "c-alarm" : "") +
+          kpi("Nachkauf ab " + cur, c.frei > 0 && c.nachkaufFW != null ? fmt(c.nachkaufFW) + " " + cur : "–", "zum akt. Devisenkurs", true, "", c.nachkauf ? "c-buy" : "")) +
+        kpi("Freie Nachkäufe", c.frei, "von " + DB.settings.maxNachkauf, true)}
+    ${kpi("Stück gesamt", fmtInt(L.J))}
+    ${kpi("Investitionssumme €", fmt(L.K))}
+    ${kpi("Ø-Kurs €", fmt(L.L))}
+    ${kpi("Mindestertrag Soll €", fmt(L.P))}
+    ${closed ? "" : kpi("Ergebnis am Alarmpreis €", fmtSigned(L.Q), "", false, sign(L.Q))}
+    ${closed ? "" : kpi("Aktueller Kurs", c.price != null ? fmt(c.price) + " " + cur : "–",
+        c.abstandAlarm != null ? (c.alarm ? pct(-c.abstandAlarm).replace("+", "") + " unter Alarm" : pct(c.abstandAlarm) + " über Alarm") : "",
+        false, c.alarm ? "txt-neg" : "", c.alarm ? "c-alarm" : "")}
+    ${!closed && c.anzTeil ? kpi("Realisiert (Teilverkäufe) €", fmtSigned(c.realTeil),
+        `${c.anzTeil} Teilverkauf${c.anzTeil > 1 ? "e" : ""} · Erlös ${fmt(c.erloesTeil)}`, false, sign(c.realTeil)) : ""}
+    ${closed || cur === "EUR" ? "" : kpi("Devisenkurs aktuell", c.fxNow ? fmt(c.fxNow, 4) : "–", "1 € = x " + cur)}
+    ${closed ? "" : kpi("Aktuelles Ergebnis €", c.ergebnis != null ? fmtSigned(c.ergebnis) : "–",
+        c.wert != null ? "Wert " + fmt(c.wert) + " · " + pct(c.ergebnis / L.K) : "", false, sign(c.ergebnis))}
+  </div>`;
+
+  const fx = cur !== "EUR";
+  const head = `<tr>
+    <th class="c">Nr.</th><th class="l">Datum</th><th>Stück</th><th>Kaufkurs<br>${cur}</th>
+    ${fx ? `<th>Devisen-<br>kurs</th><th>Wert in<br>${cur}</th>` : ""}
+    <th>Wert in<br>€</th><th>Stück<br>gesamt</th><th>Investitions-<br>summe €</th><th>Ø-Kurs<br>€</th>
+    <th>Alarmpreis<br>€</th>${fx ? `<th>Alarmpreis<br>${cur}</th>` : ""}<th class="l">Art des Alarms</th>
+    <th>Nächster Nach-<br>kauf ab €</th>${fx ? `<th>Nachkauf<br>ab ${cur}</th>` : ""}
+    <th>Mindest-<br>ertrag Soll €</th><th>Ergebnis am<br>Alarmpreis €</th>
+    <th class="th-act">akt.<br>Preis</th>${fx ? `<th class="th-act">akt. Devisen-<br>kurs</th>` : ""}<th class="th-act">Summe<br>€</th><th class="th-act">akt.<br>Ergebnis €</th>
+    <th></th></tr>`;
+
+  const body = c.rows.map((r, idx) => {
+    const isLast = r === L && !closed;
+    const act = isLast && c.price != null
+      ? `<td class="${c.alarm ? "c-alarm" : ""}">${fmt(c.price)}</td>${fx ? `<td>${c.fxNow ? fmt(c.fxNow, 4) : "–"}</td>` : ""}
+         <td>${c.wert != null ? fmt(c.wert) : "–"}</td><td class="${sign(c.ergebnis)}">${c.ergebnis != null ? fmtSigned(c.ergebnis) : "–"}</td>`
+      : `<td></td>${fx ? "<td></td>" : ""}<td></td><td></td>`;
+    const artCell = r.sale
+      ? `<td class="l"><b>Teilverkauf</b> · realisiert <span class="${sign(r.real)}">${fmtSigned(r.real)}</span></td>`
+      : `<td class="l ${r.art === "Gewinnsicherung" ? "txt-pos" : "txt-neg"}">${r.art}</td>`;
+    return `<tr class="buy-row${idx % 2 ? " alt" : ""}${r.sale ? " part-sale" : ""}${editing[g.id] === r.b.id ? " editing" : ""}" onclick="startEdit('${g.id}','${r.b.id}')" title="Klicken zum Bearbeiten">
+      <td class="c">${r.nr}</td><td class="l">${r.b.date ? fmtDate(r.b.date) : '<span class="muted">–</span>'}</td>
+      <td class="${r.sale ? "txt-neg" : ""}">${fmtInt(r.b.stueck)}</td><td>${fmt(r.b.kurs)}</td>
+      ${fx ? `<td>${fmt(r.rate, 4)}</td><td>${fmt(r.H)}</td>` : ""}
+      <td>${fmt(r.I)}</td><td>${fmtInt(r.J)}</td><td>${fmt(r.K)}</td><td>${fmt(r.L)}</td>
+      <td>${fmt(r.M)}</td>${fx ? `<td>${fmt(r.MF)}</td>` : ""}${artCell}
+      <td class="${isLast && c.nachkauf ? "c-buy" : ""}">${fmt(r.O)}</td>${fx ? `<td class="${isLast && c.nachkauf ? "c-buy" : ""}">${fmt(r.OF)}</td>` : ""}<td>${fmt(r.P)}</td><td class="${sign(r.Q)}">${fmtSigned(r.Q)}</td>
+      ${act}
+      <td class="c"><button class="btn danger small" onclick="event.stopPropagation();delBuy('${g.id}','${r.b.id}')">✕</button></td>
+    </tr>`;
+  }).join("");
+
+  const saleRow = closed && L ? `<tr class="sale-row">
+      <td class="c">V</td><td class="l">${fmtDate(g.sale.date)}</td><td>${fmtInt(-L.J)}</td><td>${fmt(g.sale.kurs)}</td>
+      ${fx ? `<td>${fmt(g.sale.fx, 4)}</td><td>${fmt(g.sale.kurs * L.J)}</td>` : ""}
+      <td>${fmt(c.erloes)}</td><td>0</td><td colspan="${fx ? 9 : 7}" class="l">Verkauf · realisiert <span class="${sign(c.realisiert)}">${fmtSigned(c.realisiert)} €</span></td>
+      <td colspan="${fx ? 4 : 3}"></td>
+      <td class="c"><button class="btn small" onclick="undoSale('${g.id}')" title="Verkauf zurücknehmen">↶</button></td></tr>` : "";
+
+  const eb = editing[g.id] ? g.buys.find(b => b.id === editing[g.id]) : null;
+  const addRow = closed ? "" : `<tr class="add-row"><td colspan="100" style="text-align:left">
+      <span style="font-size:10px;color:#5a6a7e;font-weight:700;margin-right:6px">${eb ? "Kauf bearbeiten" : g.buys.length ? "Nachkauf" : "Erstkauf"}</span>
+      <input class="inp" type="date" id="bd-${g.id}" value="${eb ? eb.date : today()}" ${fx ? `onchange="fetchFx('${g.id}')"` : ""}>
+      <input class="inp w64" id="bs-${g.id}" placeholder="Stück" title="Negative Stückzahl = Teilverkauf" value="${eb ? eb.stueck : ""}">
+      <input class="inp w80" id="bk-${g.id}" placeholder="Kurs ${cur}" value="${eb ? fmtIn(eb.kurs) : ""}">
+      ${fx ? `<input class="inp w80" id="bf-${g.id}" placeholder="Devisenkurs" title="Tageswert: 1 € = x ${cur}. Leer lassen = Tageswert zum Datum" value="${eb ? fmtIn(eb.fx, 4) : ""}">` : ""}
+      <button class="btn primary small" onclick="saveBuy('${g.id}')">${eb ? "Speichern" : "+ Kauf"}</button>
+      ${eb ? `<button class="btn small" onclick="cancelEdit('${g.id}')">Abbrechen</button>` : ""}
+      <span style="font-size:10px;color:#8a9ab0;margin-left:4px">Stück negativ = Teilverkauf</span>
+      <span class="status-msg" id="bst-${g.id}"></span>
+    </td></tr>`;
+
+  return `<div class="tbl-group${closed ? " closed" : ""}">
+    <div class="tbl-head">
+      ${nr > 1 ? `<span class="grp-nr" title="${nr}. Durchgang dieses Wertpapiers im Konto">#${nr}</span>` : ""}
+      <span class="tbl-name" ondblclick="renameGroup('${g.id}')" title="Doppelklick: umbenennen">${esc(g.name)}</span>
+      <span class="sym">${esc(g.yahooSymbol)}</span><span class="curr">${esc(cur)}</span>
+      ${badges}
+      <span class="head-actions">
+        ${closed || !L ? "" : `<button class="btn small" onclick="sellGroup('${g.id}')">Verkauf …</button>`}
+        ${DB.accounts.length > 1 ? `<select class="sel" title="In anderes Konto verschieben" onchange="moveGroup('${g.id}',this.value)">
+          ${DB.accounts.map(a => `<option value="${a.id}"${a.id === g.accountId ? " selected" : ""}>${esc(a.name)}</option>`).join("")}</select>` : ""}
+        <button class="btn danger small" onclick="delGroup('${g.id}')">✕ Wertpapier</button>
+      </span>
+    </div>
+    ${summary}
+    <div class="sec-wrap"><table class="sec-tbl">${head}${body}${saleRow}${addRow}</table></div>
+  </div>`;
+}
+
+// ── Jahreszusammenfassung ────────────────────────────────────────
+function renderYears() {
+  const groups = DB.groups.filter(g => !yearFilter || g.accountId === yearFilter);
+  const a = aggregate(groups), years = a.years;
+  const keys = Object.keys(years).sort((x, y) => x === "ohne Datum" ? 1 : y === "ohne Datum" ? -1 : x.localeCompare(y));
+  const tot = keys.reduce((t, k) => { for (const f in years[k]) t[f] += years[k][f]; return t; },
+    { kaeufe: 0, invest: 0, verkaeufe: 0, erloes: 0, kosten: 0, real: 0 });
+  let n = 0;
+  const line = (k, y, cls = "") => `<tr class="${cls || (n++ % 2 ? "alt" : "")}"><td class="l">${k}</td><td>${y.kaeufe}</td><td>${fmt(y.invest)}</td>
+    <td>${y.verkaeufe}</td><td>${fmt(y.erloes)}</td><td>${fmt(y.kosten)}</td><td class="${sign(y.real)}">${fmtSigned(y.real)}</td></tr>`;
+  document.getElementById("years").innerHTML = `<div class="sec-wrap"><table class="sec-tbl">
+    <tr><th class="l">Jahr</th><th>Käufe</th><th>Investiert €</th><th>Verkäufe</th><th>Verkaufserlös €</th><th>Einstand<br>verkauft €</th><th>Realisiertes<br>Ergebnis €</th></tr>
+    ${keys.map(k => line(k, years[k])).join("") || `<tr><td colspan="7" class="l muted">Noch keine Käufe</td></tr>`}
+    ${keys.length ? line("Gesamt", tot, "total") : ""}
+    </table></div>
+    <div class="summary" style="border-top:1px solid #d0d7e2;border-bottom:none">
+      <div class="kpi"><div class="lbl">Offene Wertpapiere</div><div class="val">${a.offenAnz}</div></div>
+      <div class="kpi"><div class="lbl">Investiert offen €</div><div class="val">${fmt(a.offenInvest)}</div></div>
+      <div class="kpi"><div class="lbl">Wert aktuell €</div><div class="val">${a.offenFehlt ? "–" : fmt(a.offenWert)}</div></div>
+      <div class="kpi"><div class="lbl">Ergebnis offen €</div><div class="val ${a.offenFehlt ? "" : sign(a.offenErg)}">${a.offenFehlt ? "–" : fmtSigned(a.offenErg)}</div>
+        <div class="sub">${a.offenFehlt || !a.offenInvest ? "" : pct(a.offenErg / a.offenInvest)}</div></div>
+      <div class="kpi"><div class="lbl">Realisiert gesamt €</div><div class="val ${sign(tot.real)}">${fmtSigned(tot.real)}</div></div>
+    </div>
+    <div class="note">Käufe zählen im Jahr ihres Kaufdatums, Verkäufe im Jahr des Verkaufs. Offene Positionen sind mit aktuellem Kurs und aktuellem Devisenkurs bewertet.</div>`;
+}
+
+// ── Aktionen ─────────────────────────────────────────────────────
+async function addAccount() {
+  const name = val("na-name"), currency = val("na-cur") || "EUR";
+  const st = document.getElementById("na-st");
+  if (!name) { st.className = "status-msg err"; st.textContent = "Bitte einen Kontonamen eingeben"; return; }
+  const r = await api("POST", "/api/bestand/accounts", { name, currency });
+  if (r.error) { st.className = "status-msg err"; st.textContent = r.error; return; }
+  document.getElementById("na-name").value = ""; document.getElementById("na-cur").value = "";
+  st.textContent = "";
+  await load();
+}
+
+async function renameAccount(aid) {
+  const a = DB.accounts.find(x => x.id === aid);
+  const name = prompt("Name des Kontos:", a.name);
+  if (!name) return;
+  await api("PUT", `/api/bestand/accounts/${aid}`, { name });
+  await load();
+}
+
+async function changeAccountCur(aid) {
+  const a = DB.accounts.find(x => x.id === aid);
+  const currency = prompt("Kontowährung (z.B. EUR, USD, CHF):", a.currency);
+  if (!currency) return;
+  await api("PUT", `/api/bestand/accounts/${aid}`, { currency });
+  await load();
+}
+
+async function delAccount(aid) {
+  const a = DB.accounts.find(x => x.id === aid);
+  if (!confirm(`Konto „${a.name}“ löschen?`)) return;
+  const r = await api("DELETE", `/api/bestand/accounts/${aid}`);
+  if (r.error) return alert(r.error);
+  await load();
+}
+
+async function addGroup(aid) {
+  const sym = val("ng-sym-" + aid), name = val("ng-name-" + aid);
+  if (!sym) return;
+  const st = document.getElementById("ng-st-" + aid);
+  st.className = "status-msg"; st.textContent = sym + " wird geladen …";
+  const r = await api("POST", "/api/bestand/groups", { yahooSymbol: sym, name, accountId: aid });
+  if (r.error) { st.className = "status-msg err"; st.textContent = r.error; return; }
+  await load();
+}
+
+async function moveGroup(gid, aid) {
+  const r = await api("PUT", `/api/bestand/groups/${gid}`, { accountId: aid });
+  if (r.error) alert(r.error);
+  await load();
+}
+
+async function delGroup(gid) {
+  const g = DB.groups.find(x => x.id === gid);
+  if (!confirm(`Wertpapier „${g.name}“ mit ${g.buys.length} Käufen löschen?`)) return;
+  await api("DELETE", `/api/bestand/groups/${gid}`);
+  await load();
+}
+
+async function renameGroup(gid) {
+  const g = DB.groups.find(x => x.id === gid);
+  const name = prompt("Name des Wertpapiers:", g.name);
+  if (!name) return;
+  await api("PUT", `/api/bestand/groups/${gid}`, { name });
+  await load();
+}
+
+function startEdit(gid, bid) { editing[gid] = editing[gid] === bid ? null : bid; render(); }
+function cancelEdit(gid) { editing[gid] = null; render(); }
+
+async function fetchFx(gid) {
+  const g = DB.groups.find(x => x.id === gid);
+  const date = val("bd-" + gid), inp = document.getElementById("bf-" + gid);
+  if (!date || !inp) return;
+  const r = await api("GET", `/api/bestand/fx?cur=${g.currency}&date=${date}`);
+  if (!r.error) { inp.value = fmtIn(r.close, 4); inp.title = `Tageswert ${fmtDate(r.date)}: 1 € = ${fmt(r.close, 4)} ${g.currency}`; }
+}
+
+async function saveBuy(gid) {
+  const st = document.getElementById("bst-" + gid);
+  const body = { date: val("bd-" + gid), stueck: parseNum(val("bs-" + gid)), kurs: parseNum(val("bk-" + gid)) };
+  const fxInp = document.getElementById("bf-" + gid);
+  if (fxInp && fxInp.value.trim()) body.fx = parseNum(fxInp.value);
+  st.className = "status-msg"; st.textContent = "Speichere …";
+  const bid = editing[gid];
+  const r = bid ? await api("PUT", `/api/bestand/groups/${gid}/buys/${bid}`, body)
+                : await api("POST", `/api/bestand/groups/${gid}/buys`, body);
+  if (r.error) { st.className = "status-msg err"; st.textContent = r.error; return; }
+  editing[gid] = null;
+  await load();
+}
+
+async function delBuy(gid, bid) {
+  if (!confirm("Kauf löschen?")) return;
+  const r = await api("DELETE", `/api/bestand/groups/${gid}/buys/${bid}`);
+  if (r.error) return alert(r.error);
+  if (editing[gid] === bid) editing[gid] = null;
+  await load();
+}
+
+async function sellGroup(gid) {
+  const g = DB.groups.find(x => x.id === gid);
+  const date = prompt("Verkaufsdatum (JJJJ-MM-TT):", today());
+  if (!date) return;
+  const kurs = parseNum(prompt(`Verkaufskurs in ${g.currency}:`, ""));
+  if (!kurs) return;
+  let fx;
+  if (g.currency !== "EUR") {
+    const f = prompt(`Devisenkurs am Verkaufstag (1 € = x ${g.currency}). Leer = Tageswert:`, "");
+    if (f && f.trim()) fx = parseNum(f);
+  }
+  const r = await api("PUT", `/api/bestand/groups/${gid}`, { sale: { date, kurs, fx } });
+  if (r.error) return alert(r.error);
+  await load();
+}
+
+async function undoSale(gid) {
+  if (!confirm("Verkauf zurücknehmen?")) return;
+  await api("PUT", `/api/bestand/groups/${gid}`, { sale: null });
+  await load();
+}
+
+async function saveParam(inp) {
+  const v = parseNum(inp.value);
+  if (v == null) return render();
+  await api("PUT", "/api/bestand/settings", { [inp.dataset.k]: inp.dataset.pct ? v / 100 : v });
+  await load();
+}
+
+// ── Helfer ───────────────────────────────────────────────────────
+async function api(method, url, body) {
+  const opts = { method, headers: { "Content-Type": "application/json" } };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(url, opts);
+  return r.json();
+}
+function setStatus(t, err) { const el = document.getElementById("status"); el.textContent = t; el.className = "status-msg" + (err ? " err" : ""); }
+const val = id => (document.getElementById(id)?.value || "").trim();
+function parseNum(s) {
+  if (s == null) return null;
+  s = String(s).trim().replace(/\s/g, "");
+  if (!s) return null;
+  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");   // 1.234,56 → 1234.56
+  const n = Number(s);
+  return isNaN(n) ? null : n;
+}
+const fmt      = (n, d = 2) => n == null || isNaN(n) ? "–" : n.toLocaleString("de-DE", { minimumFractionDigits: d, maximumFractionDigits: d });
+const fmtIn    = (n, d = 2) => n == null ? "" : String(+n.toFixed(d)).replace(".", ",");
+const fmtInt   = n => n.toLocaleString("de-DE", { maximumFractionDigits: 4 });
+const fmtSigned = n => n == null || isNaN(n) ? "–" : (n > 0 ? "+" : "") + fmt(n);
+const pct      = x => x == null || isNaN(x) ? "" : (x > 0 ? "+" : "") + (x * 100).toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " %";
+const sign     = n => n == null || isNaN(n) ? "" : n > 0 ? "txt-pos" : n < 0 ? "txt-neg" : "";
+const yearOf   = d => d ? d.slice(0, 4) : "ohne Datum";
+const today    = () => new Date().toISOString().slice(0, 10);
+function fmtDate(s) { if (!s) return ""; const [y, m, d] = s.split("-"); return `${d}.${m}.${y}`; }
+function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+load();
+</script>
+</body>
+</html>
