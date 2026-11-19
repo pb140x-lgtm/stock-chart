@@ -64,6 +64,11 @@
   .no-data{color:var(--label2);font-size:13px;padding:22px 14px;text-align:center}
   table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
   .list th{font-size:11px;font-weight:500;color:var(--label2);text-align:left;padding:7px 8px;border-bottom:1px solid var(--sep);white-space:nowrap}
+  .list th.sortable{cursor:pointer;user-select:none}
+  .list th.sortable:hover{color:var(--label)}
+  .list th.sortable.active{color:var(--label)}
+  .list th .sort-ind{display:inline-block;width:10px;font-size:9px;margin-left:2px;opacity:.35}
+  .list th.active .sort-ind{opacity:1}
   .list td{padding:6px 8px;white-space:nowrap}
   .list tr.row{cursor:pointer}
   .list tr.row + tr.row td, .list tr.detail + tr.row td{border-top:1px solid var(--sep)}
@@ -176,6 +181,9 @@ const openRows = new Set();          // "stoxx|SYM" / "wl|SYM"
 let pollTimer = null;
 let stoxxFilter = 'all';
 try { stoxxFilter = localStorage.getItem('stoxxFilter') || 'all'; } catch {}
+// Sortierung per Klick auf „Pfeil seit" / „Einstieg" (1 = aufsteigend, -1 = absteigend)
+let sortState = { key: 'arrow', dir: 1 };
+try { const s = JSON.parse(localStorage.getItem('sortState')); if (s && ['arrow', 'entry'].includes(s.key) && [1, -1].includes(s.dir)) sortState = s; } catch {}
 
 // Filter der STOXX-Liste: jeweils nur Titel mit NEUEM Signal dieser Art
 const FILTERS = {
@@ -299,6 +307,28 @@ function render(which) {
   if (!$(which === 'stoxx' ? 'btn-stoxx' : 'btn-wl').disabled)
     $(which === 'stoxx' ? 'stoxx-meta' : 'wl-meta').textContent = meta;
 
+  // Nach der gewählten Spalte sortieren („Pfeil seit" oder „Einstieg"), bei Gleichstand nach
+  // der jeweils anderen in gleicher Richtung; fehlende Daten immer ans Ende.
+  const getDate = {
+    arrow: h => h.arrows?.at(-1)?.date,
+    entry: h => h.trades?.at(-1)?.entryDate,
+  };
+  const byDate = (da, db, dir) => {
+    if (!da && !db) return 0;
+    if (!da) return 1;
+    if (!db) return -1;
+    return dir * (new Date(da) - new Date(db));
+  };
+  const { key, dir } = sortState;
+  const other = key === 'arrow' ? 'entry' : 'arrow';
+  rows = [...rows].sort((a, b) =>
+    byDate(getDate[key](a), getDate[key](b), dir) || byDate(getDate[other](a), getDate[other](b), dir));
+  const sortTh = (k, label, title = '') => {
+    const on = sortState.key === k;
+    const ind = on ? (sortState.dir === 1 ? '▲' : '▼') : '▲';
+    return `<th class="sortable${on ? ' active' : ''}" data-sort="${k}"${title ? ` title="${title}"` : ''}>${label}<span class="sort-ind">${ind}</span></th>`;
+  };
+
   const wrap = $('res-' + which);
   if (!rows.length) {
     wrap.innerHTML = `<div class="no-data">${which === 'stoxx' ? (!date ? 'Noch kein Scan gelaufen.' : d.results.length ? 'Keine Treffer für diesen Filter.' : 'Keine Treffer.') : 'Watchlist leer.'}</div>`;
@@ -308,8 +338,8 @@ function render(which) {
 <table class="list">
   <thead><tr>
     <th>Ticker</th><th>Name</th><th>Index</th>
-    <th title="Kauf-/Verkaufspfeil wie im Chart (20-Tage-Ausbruch, nur das erste Signal nach einem Gegensignal)">Pfeil</th><th>Pfeil seit</th>
-    <th title="MA20-Signal">MA20</th><th>Einstieg</th>
+    <th title="Kauf-/Verkaufspfeil wie im Chart (20-Tage-Ausbruch, nur das erste Signal nach einem Gegensignal)">Pfeil</th>${sortTh('arrow', 'Pfeil seit', 'Klicken zum Sortieren')}
+    <th title="MA20-Signal">MA20</th>${sortTh('entry', 'Einstieg', 'Klicken zum Sortieren')}
     <th class="r">Einstiegskurs</th><th class="r">Aktuell</th><th class="r">Differenz</th>
     <th class="r" title="Abstand zum Signal">Abstand</th><th></th>
   </tr></thead>
@@ -388,6 +418,14 @@ function tradeRow(t) {
 
 // ── Klicks in den Tabellen ───────────────────────────────
 document.addEventListener('click', e => {
+  const th = e.target.closest('th[data-sort]');
+  if (th) {
+    const k = th.dataset.sort;
+    sortState = sortState.key === k ? { key: k, dir: -sortState.dir } : { key: k, dir: 1 };
+    try { localStorage.setItem('sortState', JSON.stringify(sortState)); } catch {}
+    ['stoxx', 'wl'].forEach(w => { try { render(w); } catch {} });
+    return;
+  }
   const row = e.target.closest('tr.row');
   if (!row) return;
   const sym = row.dataset.sym, which = row.dataset.which;

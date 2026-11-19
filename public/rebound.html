@@ -87,7 +87,6 @@ input.sym-inp::placeholder{color:#b0bac8}
   <a href="/" class="tab-btn">← Screener</a>
   <a href="/verfolgung.html" class="tab-btn">Verfolgung</a>
   <button class="btn primary" onclick="newTable()">+ Neue Tabelle</button>
-  <button class="btn" onclick="manualUpdate()" id="btn-update" title="Alle Kurse jetzt aktualisieren">↻ Update</button>
   <span class="status-msg" id="status"></span>
   <span class="update-badge" id="stand" style="font-size:12px"></span>
 </div>
@@ -354,20 +353,6 @@ function editEinstand(tid, sym, cell) {
   };
   inp.onblur   = save;
   inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); inp.blur(); } if (e.key === "Escape") { loadTables(); } };
-}
-
-// ── Manual update ─────────────────────────────────────────
-async function manualUpdate() {
-  const btn = document.getElementById("btn-update");
-  const st  = document.getElementById("status");
-  btn.disabled = true;
-  st.textContent = "Aktualisiere …";
-  try {
-    const r = await api("POST", `/api/${NS}/update`);
-    st.textContent = `${r.updated} Einträge aktualisiert`;
-    await loadTables();
-  } catch (e) { st.textContent = "Fehler: " + e.message; }
-  finally { btn.disabled = false; setTimeout(() => { st.textContent = ""; }, 4000); }
 }
 
 // ── Helpers ───────────────────────────────────────────────
