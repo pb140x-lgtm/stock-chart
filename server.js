@@ -4,9 +4,10 @@ const path    = require("path");
 const fs      = require("fs");
 const cron    = require("node-cron");
 const { runScreener }              = require("./screener-trades");
-const { registerRoutes, dailyUpdate, rebound } = require("./verfolgung");
+const { registerRoutes, verfolgung, rebound } = require("./verfolgung");
 const { generateReport }           = require("./bericht");
 const { generateGreenReport }      = require("./gruen-bericht");
+const { generateRedReport, localISO } = require("./rot-bericht");
 
 const app  = express();
 const PORT = 3000;
@@ -174,6 +175,16 @@ app.get("/gruen-bericht", (_req, res) => {
   }
 });
 
+// Rot-Bericht: rote Preisfelder (20-T-Minimum in den ersten 10 Tagen) der Verfolgung
+app.get("/rot-bericht", (_req, res) => {
+  try {
+    const r = generateRedReport();
+    res.redirect("/" + r.file);
+  } catch (e) {
+    res.status(500).send("Bericht-Fehler: " + e.message);
+  }
+});
+
 // ── Cron-Scheduling ────────────────────────────────────────
 // STOXX 600: Dienstag (2) + Freitag (5) um 20:00
 cron.schedule("0 20 * * 2,5", () => {
@@ -185,12 +196,58 @@ cron.schedule("0 20 * * 2,5", () => {
     .finally(() => { stoxxRunning = false; });
 });
 
-// Verfolgung + Rebound: Mo–Fr 23:05
-cron.schedule("5 23 * * 1-5", () => {
-  console.log("[Cron] Verfolgung Daily Update …");
-  dailyUpdate().catch(e => console.error("[Cron Verfolgung]", e));
-  rebound.dailyUpdate().catch(e => console.error("[Cron Rebound]", e));
-});
+// Verfolgung + Rebound: automatisch nach 23:05 (Mo–Fr).
+// Läuft der Server um 23:05 nicht (Rechner im Ruhezustand), wird der Abruf
+// beim Start bzw. bei der nächsten Viertelstunden-Prüfung nachgeholt.
+function lastSlot(now = new Date()) {
+  const d = new Date(now);
+  d.setHours(23, 5, 0, 0);
+  if (d > now) d.setDate(d.getDate() - 1);
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
+  return d;
+}
+
+let kursUpdateRunning = false;
+async function kursUpdateIfDue() {
+  if (kursUpdateRunning) return;
+  const slot = lastSlot();
+  const due = [["Verfolgung", verfolgung], ["Rebound", rebound]]
+    .filter(([, ns]) => { const u = ns.lastUpdatedAt(); return !u || new Date(u) < slot; });
+  if (!due.length) return;
+  kursUpdateRunning = true;
+  try {
+    for (const [name, ns] of due) {
+      console.log(`[Auto] ${name} Kurs-Update …`);
+      await ns.dailyUpdate().catch(e => console.error(`[Auto ${name}]`, e));
+    }
+  } finally { kursUpdateRunning = false; }
+}
+
+// Rot-Bericht: automatisch nach 23:30 (Mo–Fr), nach dem Kurs-Update.
+// Verpasste Läufe (Ruhezustand) werden beim Start bzw. viertelstündlich nachgeholt.
+function lastRotSlot(now = new Date()) {
+  const d = new Date(now);
+  d.setHours(23, 30, 0, 0);
+  if (d > now) d.setDate(d.getDate() - 1);
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
+  return d;
+}
+function rotBerichtIfDue() {
+  if (kursUpdateRunning) return;              // erst nach dem Kurs-Update
+  const slot = lastRotSlot();
+  const day  = localISO(slot);
+  const file = path.join(__dirname, "public", `rot_bericht_${day}.html`);
+  // Datei vor 23:30 manuell erzeugt? → zum Termin neu schreiben
+  if (fs.existsSync(file) && fs.statSync(file).mtime >= slot) return;
+  console.log("[Auto] Rot-Bericht …");
+  try { generateRedReport(day); }
+  catch (e) { console.error("[Auto Rot-Bericht]", e); }
+}
+
+cron.schedule("5 23 * * 1-5", () => { kursUpdateIfDue(); });
+cron.schedule("30 23 * * 1-5", () => { rotBerichtIfDue(); });
+cron.schedule("*/15 * * * *", async () => { await kursUpdateIfDue(); rotBerichtIfDue(); });
+setTimeout(async () => { await kursUpdateIfDue(); rotBerichtIfDue(); }, 5000);
 
 // Bericht (rote & grüne Felder): Di–Sa um 07:00
 // (Di–Sa = Handelstage-Morgen nach dem Update vom Vorabend Mo–Fr 23:05)

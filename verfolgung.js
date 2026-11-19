@@ -62,6 +62,15 @@ async function yahooLatest(symbol) {
   };
 }
 
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function withRetry(fn, tries = 3) {
+  for (let i = 1; ; i++) {
+    try { return await fn(); }
+    catch (e) { if (i >= tries) throw e; await sleep(2000 * i); }
+  }
+}
+
 // ── Stats ───────────────────────────────────────────────────
 
 function calcStats(sec) {
@@ -102,35 +111,48 @@ function createNamespace(namespace) {
   const { readDB, writeDB } = makeInstance(namespace);
   const label = namespace.charAt(0).toUpperCase() + namespace.slice(1);
 
-  async function dailyUpdate() {
+  // Holt je Wertpapier die letzten MAX_DAYS Handelstage neu von Yahoo und
+  // ersetzt damit die gespeicherten Daten. So werden 0-Platzhalter (fehlgeschlagene
+  // Abrufe) und ausgelassene Tage beim nächsten Lauf automatisch repariert.
+  let running = null;
+  function dailyUpdate() {
+    if (!running) running = doUpdate().finally(() => { running = null; });
+    return running;
+  }
+
+  async function doUpdate() {
     const db    = readDB();
     const today = new Date().toISOString().split("T")[0];
-    let updated = 0;
+    const cache = new Map();          // gleiches Symbol in mehreren Tabellen nur einmal laden
+    let updated = 0, failed = 0;
     for (const table of db.tables) {
       for (const sec of table.securities) {
         try {
-          let entry = await yahooLatest(sec.yahooSymbol);
-          if (!entry) entry = { date: today, close: 0, volume: 0 };
-          const newestDate = sec.data[0]?.date;
-          if (entry.date === newestDate) continue;
-          sec.data.unshift(entry);
-          if (sec.data.length > MAX_DAYS) sec.data = sec.data.slice(0, MAX_DAYS);
-          updated++;
-        } catch {
-          const newestDate = sec.data[0]?.date;
-          if (today !== newestDate) {
+          if (!cache.has(sec.yahooSymbol)) {
+            cache.set(sec.yahooSymbol, await withRetry(() => yahooHistory(sec.yahooSymbol)));
+            await sleep(250);
+          }
+          const { candles } = cache.get(sec.yahooSymbol);
+          if (!candles.length) throw new Error("Keine Kerzen");
+          if (JSON.stringify(candles) !== JSON.stringify(sec.data)) updated++;
+          sec.data = candles.map(c => ({ ...c }));
+        } catch (e) {
+          failed++;
+          console.error(`[${label}] ${sec.yahooSymbol}: ${e.message}`);
+          if (sec.data[0]?.date !== today) {
             sec.data.unshift({ date: today, close: 0, volume: 0 });
             if (sec.data.length > MAX_DAYS) sec.data = sec.data.slice(0, MAX_DAYS);
-            updated++;
           }
         }
       }
     }
     db.updatedAt = new Date().toISOString();
     writeDB(db);
-    console.log(`[${label}] Daily update: ${updated} Einträge aktualisiert`);
+    console.log(`[${label}] Daily update: ${updated} Werte aktualisiert, ${failed} Fehler`);
     return updated;
   }
+
+  function lastUpdatedAt() { return readDB().updatedAt || null; }
 
   function withStats(db) {
     return {
@@ -220,7 +242,7 @@ function createNamespace(namespace) {
     });
   }
 
-  return { registerRoutes, dailyUpdate };
+  return { registerRoutes, dailyUpdate, lastUpdatedAt };
 }
 
 // Named exports
@@ -230,6 +252,7 @@ const rebound    = createNamespace("rebound");
 module.exports = {
   registerRoutes: verfolgung.registerRoutes,
   dailyUpdate:    verfolgung.dailyUpdate,
+  verfolgung,
   rebound,
   calcStats,
 };
