@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verfolgung – Rote Kursfelder | 19.11.2026</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:#eef1f5;color:#1a1a2e;font-family:'Trebuchet MS',sans-serif;padding:28px 20px 48px;min-height:100vh}
+  header{margin-bottom:28px}
+  header h1{font-size:18px;font-weight:700}
+  header p{font-size:12px;color:#5a6a7e;margin-top:5px;max-width:680px;line-height:1.6}
+  .legend{display:flex;gap:18px;margin-top:10px;flex-wrap:wrap}
+  .legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:#5a6a7e}
+  .swatch{width:14px;height:14px;border-radius:3px;flex-shrink:0}
+  .swatch-today{background:#f8a8a8;border:1px solid #e07070}
+  .swatch-recent{background:#fde8e8;border:1px solid #e0a8a8}
+  section{margin-bottom:28px}
+  .section-header{background:#d8dfe9;padding:7px 14px;border-radius:6px 6px 0 0;font-size:12px;font-weight:700;display:flex;align-items:center;gap:8px;border-bottom:2px solid #c4cdd8}
+  .badge{background:#1a56cc;color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px}
+  .badge.none{background:#8a9ab0}
+  table{width:100%;border-collapse:collapse;background:#fff;border-radius:0 0 6px 6px;overflow:hidden;font-size:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);table-layout:fixed}
+  col.c-sym{width:16%} col.c-name{width:34%} col.c-curr{width:7%}
+  col.c-date{width:14%} col.c-low{width:10%} col.c-ein{width:10%} col.c-dev{width:9%}
+  thead th{background:#f0f4f8;color:#5a6a7e;font-size:10px;font-weight:600;text-align:left;padding:6px 10px;border-bottom:1px solid #d0d7e2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  thead th.r{text-align:right}
+  tbody tr{border-bottom:1px solid #eef1f5}
+  tbody tr:last-child{border-bottom:none}
+  tbody tr:hover{background:#f7f9fc}
+  td{padding:7px 10px;vertical-align:middle}
+  .td-sym{font-weight:700;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .td-name{color:#3a4a5e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .td-curr{font-size:10px;font-weight:700;color:#1a56cc;text-align:center}
+  .td-date,.td-close,.td-einstand,.td-dev{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .td-einstand{color:#5a6a7e}
+  .td-dev{font-weight:700}
+  .dev-pos{color:#1a7a5e} .dev-neg{color:#c0392b} .dev-none{color:#8a9ab0}
+  tr.today{background:#fff0f0}
+  tr.recent{background:#fffafa}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
+  .dot-today{background:#e03030} .dot-recent{background:#e07070}
+  .empty-msg{background:#fff;border-radius:0 0 6px 6px;padding:16px 14px;font-size:12px;color:#8a9ab0;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+  footer{margin-top:36px;font-size:10px;color:#a0aab8;border-top:1px solid #d0d7e2;padding-top:12px}
+  .print-btn{float:right;margin-left:12px;background:#1a56cc;color:#fff;border:none;border-radius:6px;padding:6px 14px;font:700 12px 'Trebuchet MS',sans-serif;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+  .print-btn:hover{background:#1446a8}
+
+  /* ── Druck ── */
+  @page{size:A4 portrait;margin:12mm 10mm 14mm}
+  @media print{
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .print-btn{display:none}
+    body{background:#fff;padding:0;min-height:0;font-size:10px}
+    header{margin-bottom:14px}
+    header h1{font-size:15px}
+    header p{max-width:none;font-size:10px}
+    .legend-item{font-size:9px}
+    section{margin-bottom:14px}
+    .section-header{break-after:avoid;page-break-after:avoid;border-radius:0}
+    table,.empty-msg{box-shadow:none;border:1px solid #c4cdd8;border-radius:0;font-size:10px}
+    thead{display:table-header-group}
+    thead th{font-size:9px;padding:4px 6px}
+    td{padding:4px 6px}
+    .td-sym{font-size:10px}
+    tr{break-inside:avoid;page-break-inside:avoid}
+    tbody tr{border-bottom:1px solid #dde3ea}
+    tbody tr:hover{background:inherit}
+    footer{margin-top:18px;font-size:9px}
+  }
+</style>
+</head>
+<body>
+
+<button class="print-btn" onclick="window.print()">🖨 Drucken</button>
+
+<header>
+  <h1>Verfolgung — Rote Kursfelder in den ersten 10 Handelstagen</h1>
+  <p>Stand: 19.11.2026 &nbsp;·&nbsp; Zeigt alle Positionen, bei denen das 20-Tage-Minimum des Schlusskurses in den <strong>ersten 10 Datumsspalten</strong> (19.11. – 06.11.) liegt (= das rote Feld in der Preisreihe). Abw. % = Tiefstkurs gegenüber Einstand.</p>
+  <div class="legend">
+    <div class="legend-item"><div class="swatch swatch-today"></div> Minimum am letzten Kurstag (19.11.)</div>
+    <div class="legend-item"><div class="swatch swatch-recent"></div> Minimum vor 1–9 Tagen</div>
+  </div>
+</header>
+
+<section>
+  <div class="section-header">Bestand <span class="badge none">0 Positionen</span></div>
+  <div class="empty-msg">Keine Position hat ihr 20-Tage-Minimum in den ersten 10 Handelstagen — alle Tiefs liegen weiter zurück.</div>
+</section>
+
+<section>
+  <div class="section-header">Bestand2 <span class="badge">8 Positionen</span></div>
+  <table>
+    <colgroup>
+      <col class="c-sym"><col class="c-name"><col class="c-curr">
+      <col class="c-date"><col class="c-low"><col class="c-ein"><col class="c-dev">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Kürzel</th><th>Name</th><th>Whg.</th>
+        <th class="r">Datum Min.</th><th class="r">Tiefstkurs</th>
+        <th class="r">Einstand</th><th class="r">Abw. %</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>ASI.PA</td>
+        <td class="td-name" title="Amundi MSCI China ESG Selection Extra UCITS ETF Acc">Amundi MSCI China ESG Selection Extra UCITS ETF Acc</td>
+        <td class="td-curr">EUR</td>
+        <td class="td-date">19.11.2026</td>
+        <td class="td-close">94,58</td>
+        <td class="td-einstand">106,17</td>
+        <td class="td-dev dev-neg">−10,92 %</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>ITB.DE</td>
+        <td class="td-name" title="Imperial Brands PLC">Imperial Brands PLC</td>
+        <td class="td-curr">EUR</td>
+        <td class="td-date">19.11.2026</td>
+        <td class="td-close">33,32</td>
+        <td class="td-einstand">33,98</td>
+        <td class="td-dev dev-neg">−1,94 %</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>IUHC.L</td>
+        <td class="td-name" title="iShares S&amp;P 500 Health Care Sector UCITS ETF USD (Acc)">iShares S&amp;P 500 Health Care Sector UCITS ETF USD (Acc)</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">19.11.2026</td>
+        <td class="td-close">14,40</td>
+        <td class="td-einstand">12,40</td>
+        <td class="td-dev dev-pos">+16,13 %</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>MSFT</td>
+        <td class="td-name" title="Microsoft Corporation">Microsoft Corporation</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">19.11.2026</td>
+        <td class="td-close">498,30</td>
+        <td class="td-einstand">135,97</td>
+        <td class="td-dev dev-pos">+266,48 %</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>XMBD.L</td>
+        <td class="td-name" title="Xtrackers MSCI Brazil UCITS ETF 1C">Xtrackers MSCI Brazil UCITS ETF 1C</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">19.11.2026</td>
+        <td class="td-close">54,91</td>
+        <td class="td-einstand">74,68</td>
+        <td class="td-dev dev-neg">−26,47 %</td>
+      </tr>
+      <tr class="recent">
+        <td class="td-sym"><span class="dot dot-recent"></span>DHR</td>
+        <td class="td-name" title="Danaher Corporation">Danaher Corporation</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">17.11.2026</td>
+        <td class="td-close">225,77</td>
+        <td class="td-einstand">200,07</td>
+        <td class="td-dev dev-pos">+12,85 %</td>
+      </tr>
+      <tr class="recent">
+        <td class="td-sym"><span class="dot dot-recent"></span>GNOM.L</td>
+        <td class="td-name" title="Global X Genomics &amp; Biotechnology UCITS ETF USD Acc">Global X Genomics &amp; Biotechnology UCITS ETF USD Acc</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">17.11.2026</td>
+        <td class="td-close">10,464</td>
+        <td class="td-einstand">12,36</td>
+        <td class="td-dev dev-neg">−15,34 %</td>
+      </tr>
+      <tr class="recent">
+        <td class="td-sym"><span class="dot dot-recent"></span>LSMC.DE</td>
+        <td class="td-name" title="Amundi MSCI Semiconductors ESG Screened UCITS ETF">Amundi MSCI Semiconductors ESG Screened UCITS ETF</td>
+        <td class="td-curr">EUR</td>
+        <td class="td-date">17.11.2026</td>
+        <td class="td-close">89,36</td>
+        <td class="td-einstand">102,12</td>
+        <td class="td-dev dev-neg">−12,50 %</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <div class="section-header">EMA Filter <span class="badge">2 Positionen</span></div>
+  <table>
+    <colgroup>
+      <col class="c-sym"><col class="c-name"><col class="c-curr">
+      <col class="c-date"><col class="c-low"><col class="c-ein"><col class="c-dev">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Kürzel</th><th>Name</th><th>Whg.</th>
+        <th class="r">Datum Min.</th><th class="r">Tiefstkurs</th>
+        <th class="r">Einstand</th><th class="r">Abw. %</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="recent">
+        <td class="td-sym"><span class="dot dot-recent"></span>PDD</td>
+        <td class="td-name" title="PDD Holdings Inc.">PDD Holdings Inc.</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">17.11.2026</td>
+        <td class="td-close">77,39</td>
+        <td class="td-einstand">—</td>
+        <td class="td-dev dev-none">—</td>
+      </tr>
+      <tr class="recent">
+        <td class="td-sym"><span class="dot dot-recent"></span>AVIO.MI</td>
+        <td class="td-name" title="Avio S.p.A.">Avio S.p.A.</td>
+        <td class="td-curr">EUR</td>
+        <td class="td-date">06.11.2026</td>
+        <td class="td-close">28,92</td>
+        <td class="td-einstand">—</td>
+        <td class="td-dev dev-none">—</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <div class="section-header">Qualitätsaktien <span class="badge none">0 Positionen</span></div>
+  <div class="empty-msg">Keine Position hat ihr 20-Tage-Minimum in den ersten 10 Handelstagen — alle Tiefs liegen weiter zurück.</div>
+</section>
+
+<section>
+  <div class="section-header">Kaufkandidaten <span class="badge">8 Positionen</span></div>
+  <table>
+    <colgroup>
+      <col class="c-sym"><col class="c-name"><col class="c-curr">
+      <col class="c-date"><col class="c-low"><col class="c-ein"><col class="c-dev">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Kürzel</th><th>Name</th><th>Whg.</th>
+        <th class="r">Datum Min.</th><th class="r">Tiefstkurs</th>
+        <th class="r">Einstand</th><th class="r">Abw. %</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>4BRZ.DE</td>
+        <td class="td-name" title="iShares MSCI Brazil UCITS ETF (DE)">iShares MSCI Brazil UCITS ETF (DE)</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">19.11.2026</td>
+        <td class="td-close">42,035</td>
+        <td class="td-einstand">46,17</td>
+        <td class="td-dev dev-neg">−8,96 %</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>ELF</td>
+        <td class="td-name" title="e.l.f. Beauty, Inc.">e.l.f. Beauty, Inc.</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">19.11.2026</td>
+        <td class="td-close">108,93</td>
+        <td class="td-einstand">114,00</td>
+        <td class="td-dev dev-neg">−4,45 %</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>EWSP.AS</td>
+        <td class="td-name" title="iShares S&amp;P 500 Equal Weight UCITS ETF USD (Acc)">iShares S&amp;P 500 Equal Weight UCITS ETF USD (Acc)</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">19.11.2026</td>
+        <td class="td-close">7,802</td>
+        <td class="td-einstand">8,116</td>
+        <td class="td-dev dev-neg">−3,87 %</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>PBR</td>
+        <td class="td-name" title="Petróleo Brasileiro S.A. - Petrobras">Petróleo Brasileiro S.A. - Petrobras</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">19.11.2026</td>
+        <td class="td-close">16,29</td>
+        <td class="td-einstand">22,05</td>
+        <td class="td-dev dev-neg">−26,12 %</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>PLTR</td>
+        <td class="td-name" title="Palantir Technologies Inc.">Palantir Technologies Inc.</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">19.11.2026</td>
+        <td class="td-close">153,68</td>
+        <td class="td-einstand">156,00</td>
+        <td class="td-dev dev-neg">−1,49 %</td>
+      </tr>
+      <tr class="recent">
+        <td class="td-sym"><span class="dot dot-recent"></span>FSLR</td>
+        <td class="td-name" title="First Solar, Inc.">First Solar, Inc.</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">18.11.2026</td>
+        <td class="td-close">150,98</td>
+        <td class="td-einstand">150,00</td>
+        <td class="td-dev dev-pos">+0,65 %</td>
+      </tr>
+      <tr class="recent">
+        <td class="td-sym"><span class="dot dot-recent"></span>IRTC</td>
+        <td class="td-name" title="iRhythm Holdings, Inc.">iRhythm Holdings, Inc.</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">10.11.2026</td>
+        <td class="td-close">86,06</td>
+        <td class="td-einstand">95,00</td>
+        <td class="td-dev dev-neg">−9,41 %</td>
+      </tr>
+      <tr class="recent">
+        <td class="td-sym"><span class="dot dot-recent"></span>URGN</td>
+        <td class="td-name" title="UroGen Pharma Ltd.">UroGen Pharma Ltd.</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">06.11.2026</td>
+        <td class="td-close">24,75</td>
+        <td class="td-einstand">30,00</td>
+        <td class="td-dev dev-neg">−17,50 %</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <div class="section-header">Bestand 3 <span class="badge">2 Positionen</span></div>
+  <table>
+    <colgroup>
+      <col class="c-sym"><col class="c-name"><col class="c-curr">
+      <col class="c-date"><col class="c-low"><col class="c-ein"><col class="c-dev">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Kürzel</th><th>Name</th><th>Whg.</th>
+        <th class="r">Datum Min.</th><th class="r">Tiefstkurs</th>
+        <th class="r">Einstand</th><th class="r">Abw. %</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>ELE.MC</td>
+        <td class="td-name" title="Endesa, S.A.">Endesa, S.A.</td>
+        <td class="td-curr">EUR</td>
+        <td class="td-date">19.11.2026</td>
+        <td class="td-close">43,06</td>
+        <td class="td-einstand">43,98</td>
+        <td class="td-dev dev-neg">−2,09 %</td>
+      </tr>
+      <tr class="recent">
+        <td class="td-sym"><span class="dot dot-recent"></span>EMXC.L</td>
+        <td class="td-name" title="Amundi MSCI Emerging Ex China Swap UCITS ETF Acc">Amundi MSCI Emerging Ex China Swap UCITS ETF Acc</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">18.11.2026</td>
+        <td class="td-close">40,47</td>
+        <td class="td-einstand">45,24</td>
+        <td class="td-dev dev-neg">−10,54 %</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <div class="section-header">ETF <span class="badge">1 Position</span></div>
+  <table>
+    <colgroup>
+      <col class="c-sym"><col class="c-name"><col class="c-curr">
+      <col class="c-date"><col class="c-low"><col class="c-ein"><col class="c-dev">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Kürzel</th><th>Name</th><th>Whg.</th>
+        <th class="r">Datum Min.</th><th class="r">Tiefstkurs</th>
+        <th class="r">Einstand</th><th class="r">Abw. %</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>XMBD.L</td>
+        <td class="td-name" title="Xtrackers MSCI Brazil UCITS ETF 1C">Xtrackers MSCI Brazil UCITS ETF 1C</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">19.11.2026</td>
+        <td class="td-close">54,91</td>
+        <td class="td-einstand">59,39</td>
+        <td class="td-dev dev-neg">−7,54 %</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <div class="section-header">The Market <span class="badge">8 Positionen</span></div>
+  <table>
+    <colgroup>
+      <col class="c-sym"><col class="c-name"><col class="c-curr">
+      <col class="c-date"><col class="c-low"><col class="c-ein"><col class="c-dev">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Kürzel</th><th>Name</th><th>Whg.</th>
+        <th class="r">Datum Min.</th><th class="r">Tiefstkurs</th>
+        <th class="r">Einstand</th><th class="r">Abw. %</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>ACN</td>
+        <td class="td-name" title="Accenture plc">Accenture plc</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">19.11.2026</td>
+        <td class="td-close">218,58</td>
+        <td class="td-einstand">—</td>
+        <td class="td-dev dev-none">—</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>CTSH</td>
+        <td class="td-name" title="Cognizant Technology Solutions Corporation">Cognizant Technology Solutions Corporation</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">19.11.2026</td>
+        <td class="td-close">56,31</td>
+        <td class="td-einstand">—</td>
+        <td class="td-dev dev-none">—</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>GOOGL</td>
+        <td class="td-name" title="Alphabet Inc.">Alphabet Inc.</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">19.11.2026</td>
+        <td class="td-close">272,66</td>
+        <td class="td-einstand">—</td>
+        <td class="td-dev dev-none">—</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>IBM</td>
+        <td class="td-name" title="International Business Machines Corporation">International Business Machines Corporation</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">19.11.2026</td>
+        <td class="td-close">223,88</td>
+        <td class="td-einstand">—</td>
+        <td class="td-dev dev-none">—</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>MSFT</td>
+        <td class="td-name" title="Microsoft Corporation">Microsoft Corporation</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">19.11.2026</td>
+        <td class="td-close">498,30</td>
+        <td class="td-einstand">—</td>
+        <td class="td-dev dev-none">—</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>SAP</td>
+        <td class="td-name" title="SAP SE">SAP SE</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">19.11.2026</td>
+        <td class="td-close">203,23</td>
+        <td class="td-einstand">—</td>
+        <td class="td-dev dev-none">—</td>
+      </tr>
+      <tr class="recent">
+        <td class="td-sym"><span class="dot dot-recent"></span>CSCO</td>
+        <td class="td-name" title="Cisco Systems, Inc.">Cisco Systems, Inc.</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">06.11.2026</td>
+        <td class="td-close">93,85</td>
+        <td class="td-einstand">—</td>
+        <td class="td-dev dev-none">—</td>
+      </tr>
+      <tr class="recent">
+        <td class="td-sym"><span class="dot dot-recent"></span>FTNT</td>
+        <td class="td-name" title="Fortinet, Inc.">Fortinet, Inc.</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">06.11.2026</td>
+        <td class="td-close">118,84</td>
+        <td class="td-einstand">—</td>
+        <td class="td-dev dev-none">—</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <div class="section-header">Top <span class="badge">7 Positionen</span></div>
+  <table>
+    <colgroup>
+      <col class="c-sym"><col class="c-name"><col class="c-curr">
+      <col class="c-date"><col class="c-low"><col class="c-ein"><col class="c-dev">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Kürzel</th><th>Name</th><th>Whg.</th>
+        <th class="r">Datum Min.</th><th class="r">Tiefstkurs</th>
+        <th class="r">Einstand</th><th class="r">Abw. %</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>GOOGL</td>
+        <td class="td-name" title="Alphabet Inc.">Alphabet Inc.</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">19.11.2026</td>
+        <td class="td-close">272,66</td>
+        <td class="td-einstand">289,00</td>
+        <td class="td-dev dev-neg">−5,65 %</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>META</td>
+        <td class="td-name" title="Meta Platforms, Inc.">Meta Platforms, Inc.</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">19.11.2026</td>
+        <td class="td-close">596,22</td>
+        <td class="td-einstand">616,00</td>
+        <td class="td-dev dev-neg">−3,21 %</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>MSFT</td>
+        <td class="td-name" title="Microsoft Corporation">Microsoft Corporation</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">19.11.2026</td>
+        <td class="td-close">498,30</td>
+        <td class="td-einstand">518,00</td>
+        <td class="td-dev dev-neg">−3,80 %</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>NVDA</td>
+        <td class="td-name" title="NVIDIA Corporation">NVIDIA Corporation</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">19.11.2026</td>
+        <td class="td-close">145,98</td>
+        <td class="td-einstand">153,00</td>
+        <td class="td-dev dev-neg">−4,59 %</td>
+      </tr>
+      <tr class="today">
+        <td class="td-sym"><span class="dot dot-today"></span>SNDK</td>
+        <td class="td-name" title="Sandisk Corporation">Sandisk Corporation</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">19.11.2026</td>
+        <td class="td-close">755,16</td>
+        <td class="td-einstand">804,00</td>
+        <td class="td-dev dev-neg">−6,07 %</td>
+      </tr>
+      <tr class="recent">
+        <td class="td-sym"><span class="dot dot-recent"></span>PANW</td>
+        <td class="td-name" title="Palo Alto Networks, Inc.">Palo Alto Networks, Inc.</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">17.11.2026</td>
+        <td class="td-close">309,29</td>
+        <td class="td-einstand">400,00</td>
+        <td class="td-dev dev-neg">−22,68 %</td>
+      </tr>
+      <tr class="recent">
+        <td class="td-sym"><span class="dot dot-recent"></span>CRWD</td>
+        <td class="td-name" title="CrowdStrike Holdings, Inc.">CrowdStrike Holdings, Inc.</td>
+        <td class="td-curr">USD</td>
+        <td class="td-date">06.11.2026</td>
+        <td class="td-close">216,90</td>
+        <td class="td-einstand">243,00</td>
+        <td class="td-dev dev-neg">−10,74 %</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<footer>
+  Erstellt am 19.11.2026 &nbsp;·&nbsp; Verfolgung-App &nbsp;·&nbsp; Rot = 20-Tage-Minimum des Schlusskurses liegt in den ersten 10 Datumsspalten (19.11. – 06.11.)
+</footer>
+
+</body>
+</html>

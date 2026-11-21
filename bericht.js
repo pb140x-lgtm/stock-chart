@@ -8,6 +8,7 @@
 // ─────────────────────────────────────────────────────────────
 const fs   = require("fs");
 const path = require("path");
+const { abrufVermerk, ABRUF_CSS } = require("./abruf-vermerk");
 const { calcStats } = require("./verfolgung");
 
 const DATA_DIR   = path.join(__dirname, "data");
@@ -50,7 +51,7 @@ function dots(f) {
 }
 
 // ── Report zusammenbauen ─────────────────────────────────────
-function buildHTML(today) {
+function buildHTML(today, abruf) {
   const [y, m, d] = today.split("-");
   const dateDE = `${d}.${m}.${y}`;
 
@@ -104,11 +105,12 @@ function buildHTML(today) {
   .dot-high{background:#1fa667}
   .dot-low{background:#d64545}
   .empty{background:#fff;padding:14px;border-radius:6px;font-size:12px;color:#8a9ab0}
-</style>
+${ABRUF_CSS}</style>
 </head>
 <body>
   <h1>Aufstellung — Hochs &amp; Tiefs der letzten ${WINDOW} Handelstage</h1>
   <div class="sub">Stand: ${dateDE}</div>
+  ${abrufVermerk(abruf)}
   <div class="legend">
     <span><span class="dot dot-high"></span> grün = Hoch (Kurs/Vol)</span>
     <span><span class="dot dot-low"></span> rot = Tief (Kurs/Vol)</span>
@@ -119,9 +121,10 @@ function buildHTML(today) {
 }
 
 // ── Öffentliche API ──────────────────────────────────────────
-function generateReport(dateStr) {
+// abruf: "automatisch" (Zeitplan Di–Sa 07:00) | "individuell"
+function generateReport(dateStr, abruf = "individuell") {
   const today = dateStr || new Date().toISOString().split("T")[0];
-  const html  = buildHTML(today);
+  const html  = buildHTML(today, abruf);
   const file  = path.join(PUBLIC_DIR, `bericht_${today}.html`);
   fs.writeFileSync(file, html);
   console.log(`[Bericht] erzeugt: ${path.basename(file)}`);

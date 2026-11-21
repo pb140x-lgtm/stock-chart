@@ -3,10 +3,11 @@ const express = require("express");
 const path    = require("path");
 const fs      = require("fs");
 const cron    = require("node-cron");
-const { runScreener }              = require("./screener-trades");
-const { registerRoutes, dailyUpdate, rebound } = require("./verfolgung");
+const { runScreener, analyzeSymbol } = require("./screener-trades");
+const { registerRoutes, verfolgung, rebound } = require("./verfolgung");
 const { generateReport }           = require("./bericht");
 const { generateGreenReport }      = require("./gruen-bericht");
+const { generateRedReport, localISO } = require("./rot-bericht");
 
 const app  = express();
 const PORT = 3000;
@@ -99,15 +100,26 @@ const saveWL = list => fs.writeFileSync(WATCHLIST_FILE, JSON.stringify(list, nul
 
 app.get("/api/watchlist", (_req, res) => res.json(loadWL()));
 
-app.post("/api/watchlist/add", (req, res) => {
+app.post("/api/watchlist/add", async (req, res) => {
   const { symbol, name, index } = req.body;
   if (!symbol) return res.status(400).json({ error: "symbol required" });
   const list = loadWL();
   const sym  = symbol.toUpperCase();
+  const entry = { symbol: sym, name: name || sym, index: index || "manuell" };
   if (!list.find(s => s.symbol === sym)) {
-    list.push({ symbol: sym, name: name || sym, index: index || "manuell" });
+    list.push(entry);
     saveWL(list);
   }
+  // Bewegungsdaten (Kurs, Trades, Pfeile) sofort ermitteln, nicht erst beim nächsten Watchlist-Scan
+  try {
+    const result = await analyzeSymbol(entry, { includeAll: true });
+    if (result) {
+      const out = readJSON(WATCHLIST_RESULTS_FILE, { results: [], updatedAt: null });
+      out.results = (out.results || []).filter(r => r.symbol !== sym).concat(result);
+      if (!out.updatedAt) out.updatedAt = new Date().toISOString();
+      fs.writeFileSync(WATCHLIST_RESULTS_FILE, JSON.stringify(out, null, 2));
+    }
+  } catch (e) { console.error("[Watchlist add]", sym, e.message); }
   res.json({ ok: true });
 });
 
@@ -141,35 +153,45 @@ registerRoutes(app);
 // ── Rebound ────────────────────────────────────────────────
 rebound.registerRoutes(app);
 
+// ── Bestandsentwicklung ────────────────────────────────────
+require("./bestand").registerRoutes(app);
+
 // ── Bericht (rote & grüne Felder, letzte 5 Tage) ───────────
+// NUR automatisch (Di–Sa 07:00). Kein Neuabruf von Hand – die Routen zeigen
+// nur den zuletzt automatisch erzeugten Bericht (Regel: einmal automatisch
+// gestellte Berichte bleiben nur automatisch).
+function latestReport(prefix) {
+  const re = new RegExp("^" + prefix + "_\\d{4}-\\d{2}-\\d{2}\\.html$");
+  const files = fs.readdirSync(path.join(__dirname, "public")).filter(n => re.test(n)).sort();
+  return files.length ? files[files.length - 1] : null;
+}
+function showLatest(prefix, label) {
+  return (_req, res) => {
+    const f = latestReport(prefix);
+    if (f) return res.redirect("/" + f);
+    res.status(404).send(label + ": noch kein automatisch erzeugter Bericht vorhanden.");
+  };
+}
 app.post("/api/bericht/generate", (_req, res) => {
-  try {
-    const r = generateReport();
-    res.json({ ok: true, file: r.file, url: "/" + r.file });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+  const f = latestReport("bericht");
+  if (!f) return res.status(404).json({ error: "Noch kein automatisch erzeugter Bericht vorhanden." });
+  res.json({ ok: true, file: f, url: "/" + f, automatisch: true });
 });
+app.get("/bericht", showLatest("bericht", "Bericht"));
 
-// Bequemer Einstieg: erzeugt (falls nötig) die heutige Datei und öffnet sie.
-app.get("/bericht", (_req, res) => {
-  try {
-    const r = generateReport();
-    res.redirect("/" + r.file);
-  } catch (e) {
-    res.status(500).send("Bericht-Fehler: " + e.message);
-  }
-});
-
-// Grün-Bericht: grüne Preisfelder der letzten 2 Tage (erzeugt die heutige Datei und öffnet sie)
+// Grün-Bericht: grüne Preisfelder der letzten 2 Tage – kein Zeitplan, daher
+// individueller Abruf (erzeugt die heutige Datei, Vermerk "Individuell")
 app.get("/gruen-bericht", (_req, res) => {
   try {
-    const r = generateGreenReport();
+    const r = generateGreenReport(undefined, "individuell");
     res.redirect("/" + r.file);
   } catch (e) {
     res.status(500).send("Bericht-Fehler: " + e.message);
   }
 });
+
+// Rot-Bericht: NUR automatisch (Mo–Fr 23:30) – Route zeigt den letzten Bericht.
+app.get("/rot-bericht", showLatest("rot_bericht", "Rot-Bericht"));
 
 // ── Cron-Scheduling ────────────────────────────────────────
 // STOXX 600: Dienstag (2) + Freitag (5) um 20:00
@@ -182,18 +204,63 @@ cron.schedule("0 20 * * 2,5", () => {
     .finally(() => { stoxxRunning = false; });
 });
 
-// Verfolgung + Rebound: Mo–Fr 23:05
-cron.schedule("5 23 * * 1-5", () => {
-  console.log("[Cron] Verfolgung Daily Update …");
-  dailyUpdate().catch(e => console.error("[Cron Verfolgung]", e));
-  rebound.dailyUpdate().catch(e => console.error("[Cron Rebound]", e));
-});
+// Verfolgung + Rebound: automatisch nach 23:05 (Mo–Fr).
+// Läuft der Server um 23:05 nicht (Rechner im Ruhezustand), wird der Abruf
+// beim Start bzw. bei der nächsten Viertelstunden-Prüfung nachgeholt.
+function lastSlot(now = new Date()) {
+  const d = new Date(now);
+  d.setHours(23, 5, 0, 0);
+  if (d > now) d.setDate(d.getDate() - 1);
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
+  return d;
+}
+
+let kursUpdateRunning = false;
+async function kursUpdateIfDue() {
+  if (kursUpdateRunning) return;
+  const slot = lastSlot();
+  const due = [["Verfolgung", verfolgung], ["Rebound", rebound]]
+    .filter(([, ns]) => { const u = ns.lastUpdatedAt(); return !u || new Date(u) < slot; });
+  if (!due.length) return;
+  kursUpdateRunning = true;
+  try {
+    for (const [name, ns] of due) {
+      console.log(`[Auto] ${name} Kurs-Update …`);
+      await ns.dailyUpdate().catch(e => console.error(`[Auto ${name}]`, e));
+    }
+  } finally { kursUpdateRunning = false; }
+}
+
+// Rot-Bericht: automatisch nach 23:30 (Mo–Fr), nach dem Kurs-Update.
+// Verpasste Läufe (Ruhezustand) werden beim Start bzw. viertelstündlich nachgeholt.
+function lastRotSlot(now = new Date()) {
+  const d = new Date(now);
+  d.setHours(23, 30, 0, 0);
+  if (d > now) d.setDate(d.getDate() - 1);
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
+  return d;
+}
+function rotBerichtIfDue() {
+  if (kursUpdateRunning) return;              // erst nach dem Kurs-Update
+  const slot = lastRotSlot();
+  const day  = localISO(slot);
+  const file = path.join(__dirname, "public", `rot_bericht_${day}.html`);
+  if (fs.existsSync(file) && fs.statSync(file).mtime >= slot) return;
+  console.log("[Auto] Rot-Bericht …");
+  try { generateRedReport(day, "automatisch"); }
+  catch (e) { console.error("[Auto Rot-Bericht]", e); }
+}
+
+cron.schedule("5 23 * * 1-5", () => { kursUpdateIfDue(); });
+cron.schedule("30 23 * * 1-5", () => { rotBerichtIfDue(); });
+cron.schedule("*/15 * * * *", async () => { await kursUpdateIfDue(); rotBerichtIfDue(); });
+setTimeout(async () => { await kursUpdateIfDue(); rotBerichtIfDue(); }, 5000);
 
 // Bericht (rote & grüne Felder): Di–Sa um 07:00
 // (Di–Sa = Handelstage-Morgen nach dem Update vom Vorabend Mo–Fr 23:05)
 cron.schedule("0 7 * * 2-6", () => {
   console.log("[Cron] Bericht rote/grüne Felder …");
-  try { generateReport(); }
+  try { generateReport(undefined, "automatisch"); }
   catch (e) { console.error("[Cron Bericht]", e); }
 });
 
