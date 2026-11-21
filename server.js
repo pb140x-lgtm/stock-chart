@@ -3,7 +3,7 @@ const express = require("express");
 const path    = require("path");
 const fs      = require("fs");
 const cron    = require("node-cron");
-const { runScreener }              = require("./screener-trades");
+const { runScreener, analyzeSymbol } = require("./screener-trades");
 const { registerRoutes, verfolgung, rebound } = require("./verfolgung");
 const { generateReport }           = require("./bericht");
 const { generateGreenReport }      = require("./gruen-bericht");
@@ -100,15 +100,26 @@ const saveWL = list => fs.writeFileSync(WATCHLIST_FILE, JSON.stringify(list, nul
 
 app.get("/api/watchlist", (_req, res) => res.json(loadWL()));
 
-app.post("/api/watchlist/add", (req, res) => {
+app.post("/api/watchlist/add", async (req, res) => {
   const { symbol, name, index } = req.body;
   if (!symbol) return res.status(400).json({ error: "symbol required" });
   const list = loadWL();
   const sym  = symbol.toUpperCase();
+  const entry = { symbol: sym, name: name || sym, index: index || "manuell" };
   if (!list.find(s => s.symbol === sym)) {
-    list.push({ symbol: sym, name: name || sym, index: index || "manuell" });
+    list.push(entry);
     saveWL(list);
   }
+  // Bewegungsdaten (Kurs, Trades, Pfeile) sofort ermitteln, nicht erst beim nächsten Watchlist-Scan
+  try {
+    const result = await analyzeSymbol(entry, { includeAll: true });
+    if (result) {
+      const out = readJSON(WATCHLIST_RESULTS_FILE, { results: [], updatedAt: null });
+      out.results = (out.results || []).filter(r => r.symbol !== sym).concat(result);
+      if (!out.updatedAt) out.updatedAt = new Date().toISOString();
+      fs.writeFileSync(WATCHLIST_RESULTS_FILE, JSON.stringify(out, null, 2));
+    }
+  } catch (e) { console.error("[Watchlist add]", sym, e.message); }
   res.json({ ok: true });
 });
 
@@ -146,44 +157,41 @@ rebound.registerRoutes(app);
 require("./bestand").registerRoutes(app);
 
 // ── Bericht (rote & grüne Felder, letzte 5 Tage) ───────────
+// NUR automatisch (Di–Sa 07:00). Kein Neuabruf von Hand – die Routen zeigen
+// nur den zuletzt automatisch erzeugten Bericht (Regel: einmal automatisch
+// gestellte Berichte bleiben nur automatisch).
+function latestReport(prefix) {
+  const re = new RegExp("^" + prefix + "_\\d{4}-\\d{2}-\\d{2}\\.html$");
+  const files = fs.readdirSync(path.join(__dirname, "public")).filter(n => re.test(n)).sort();
+  return files.length ? files[files.length - 1] : null;
+}
+function showLatest(prefix, label) {
+  return (_req, res) => {
+    const f = latestReport(prefix);
+    if (f) return res.redirect("/" + f);
+    res.status(404).send(label + ": noch kein automatisch erzeugter Bericht vorhanden.");
+  };
+}
 app.post("/api/bericht/generate", (_req, res) => {
-  try {
-    const r = generateReport();
-    res.json({ ok: true, file: r.file, url: "/" + r.file });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+  const f = latestReport("bericht");
+  if (!f) return res.status(404).json({ error: "Noch kein automatisch erzeugter Bericht vorhanden." });
+  res.json({ ok: true, file: f, url: "/" + f, automatisch: true });
 });
+app.get("/bericht", showLatest("bericht", "Bericht"));
 
-// Bequemer Einstieg: erzeugt (falls nötig) die heutige Datei und öffnet sie.
-app.get("/bericht", (_req, res) => {
-  try {
-    const r = generateReport();
-    res.redirect("/" + r.file);
-  } catch (e) {
-    res.status(500).send("Bericht-Fehler: " + e.message);
-  }
-});
-
-// Grün-Bericht: grüne Preisfelder der letzten 2 Tage (erzeugt die heutige Datei und öffnet sie)
+// Grün-Bericht: grüne Preisfelder der letzten 2 Tage – kein Zeitplan, daher
+// individueller Abruf (erzeugt die heutige Datei, Vermerk "Individuell")
 app.get("/gruen-bericht", (_req, res) => {
   try {
-    const r = generateGreenReport();
+    const r = generateGreenReport(undefined, "individuell");
     res.redirect("/" + r.file);
   } catch (e) {
     res.status(500).send("Bericht-Fehler: " + e.message);
   }
 });
 
-// Rot-Bericht: rote Preisfelder (20-T-Minimum in den ersten 10 Tagen) der Verfolgung
-app.get("/rot-bericht", (_req, res) => {
-  try {
-    const r = generateRedReport();
-    res.redirect("/" + r.file);
-  } catch (e) {
-    res.status(500).send("Bericht-Fehler: " + e.message);
-  }
-});
+// Rot-Bericht: NUR automatisch (Mo–Fr 23:30) – Route zeigt den letzten Bericht.
+app.get("/rot-bericht", showLatest("rot_bericht", "Rot-Bericht"));
 
 // ── Cron-Scheduling ────────────────────────────────────────
 // STOXX 600: Dienstag (2) + Freitag (5) um 20:00
@@ -237,10 +245,9 @@ function rotBerichtIfDue() {
   const slot = lastRotSlot();
   const day  = localISO(slot);
   const file = path.join(__dirname, "public", `rot_bericht_${day}.html`);
-  // Datei vor 23:30 manuell erzeugt? → zum Termin neu schreiben
   if (fs.existsSync(file) && fs.statSync(file).mtime >= slot) return;
   console.log("[Auto] Rot-Bericht …");
-  try { generateRedReport(day); }
+  try { generateRedReport(day, "automatisch"); }
   catch (e) { console.error("[Auto Rot-Bericht]", e); }
 }
 
@@ -253,7 +260,7 @@ setTimeout(async () => { await kursUpdateIfDue(); rotBerichtIfDue(); }, 5000);
 // (Di–Sa = Handelstage-Morgen nach dem Update vom Vorabend Mo–Fr 23:05)
 cron.schedule("0 7 * * 2-6", () => {
   console.log("[Cron] Bericht rote/grüne Felder …");
-  try { generateReport(); }
+  try { generateReport(undefined, "automatisch"); }
   catch (e) { console.error("[Cron Bericht]", e); }
 });
 

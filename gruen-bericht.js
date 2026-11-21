@@ -12,6 +12,7 @@
 const fs   = require("fs");
 const path = require("path");
 const { calcStats } = require("./verfolgung");
+const { abrufVermerk, ABRUF_CSS } = require("./abruf-vermerk");
 
 const DATA_DIR   = path.join(__dirname, "data");
 const PUBLIC_DIR = path.join(__dirname, "public");
@@ -98,7 +99,7 @@ function trendSection(all, key, n) {
   </section>`;
 }
 
-function buildHTML(today) {
+function buildHTML(today, abruf) {
   const all  = collect();
   const rows = all.filter(r => r.green);
   const trs = rows.map(r => `<tr>
@@ -167,11 +168,12 @@ function buildHTML(today) {
     table{box-shadow:none}
     .td-price,.cnt{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   }
-</style>
+${ABRUF_CSS}</style>
 </head>
 <body>
   <button class="print-btn" onclick="window.print()">Drucken</button>
   <h1>Grün-Bericht — Verfolgung + Rebound</h1>
+  ${abrufVermerk(abruf)}
   <div class="sub">Stand: ${fmtDate(today)} · letzter Kurstag ${lastDate ? fmtDate(lastDate) : "–"} · ${all.length} Werte ausgewertet · Trend = Veränderung Schlusskurs gegenüber vor 5 bzw. 10 Handelstagen</div>
 
   <section class="block">
@@ -188,10 +190,11 @@ function buildHTML(today) {
 </html>`;
 }
 
-function generateGreenReport(dateStr) {
+// abruf: "individuell" (GET /gruen-bericht) | "automatisch"
+function generateGreenReport(dateStr, abruf = "individuell") {
   const today = dateStr || new Date().toISOString().split("T")[0];
   const name  = `gruen_bericht_${today}.html`;
-  fs.writeFileSync(path.join(PUBLIC_DIR, name), buildHTML(today));
+  fs.writeFileSync(path.join(PUBLIC_DIR, name), buildHTML(today, abruf));
   console.log(`[Grün-Bericht] erzeugt: ${name}`);
   return { file: name, path: path.join(PUBLIC_DIR, name) };
 }

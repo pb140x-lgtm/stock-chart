@@ -187,7 +187,7 @@ try { const s = JSON.parse(localStorage.getItem('sortState')); if (s && ['arrow'
 
 // Filter der STOXX-Liste: jeweils nur Titel mit NEUEM Signal dieser Art
 const FILTERS = {
-  all:     () => true,
+  all:     h => hasNewSignal(h),
   kauf:    h => h.arrows?.at(-1)?.direction === 'Kauf'    && isNew(h.arrows.at(-1).date, 'stoxx'),
   verkauf: h => h.arrows?.at(-1)?.direction === 'Verkauf' && isNew(h.arrows.at(-1).date, 'stoxx'),
   ma20:    h => isNew(h.trades?.at(-1)?.entryDate, 'stoxx'),
@@ -206,13 +206,18 @@ const pct = n => typeof n === 'number'
 const dat = d => { const m = /^(\d{4})-(\d\d)-(\d\d)/.exec(d || ''); return m ? `${m[3]}.${m[2]}.${m[1].slice(2)}` : '–'; };
 const arrowHTML = a => `<span class="arr ${a.direction === 'Kauf' ? 'up' : 'down'}">${a.direction === 'Kauf' ? '▲' : '▼'}</span>${esc(a.direction)}`;
 const dist = n => n != null ? num(n).replace(/,00$/, '') + ' %' : '–';
-// "neu" = Signal in den letzten 5 Handelstagen (≈ 8 Kalendertage) vor dem Scan
+// "neu" = Signal in den letzten 5 Handelstagen (Mo–Fr) bis einschließlich Scan-Tag
 function isNew(d, which) {
   const u = data[which].updatedAt;
   if (!d || !u) return false;
-  const cut = new Date(u); cut.setDate(cut.getDate() - 8);
-  return d >= cut.toISOString().slice(0, 10);
+  const cut = new Date(u);
+  while (cut.getDay() === 0 || cut.getDay() === 6) cut.setDate(cut.getDate() - 1);
+  for (let n = 1; n < 5; ) { cut.setDate(cut.getDate() - 1); if (cut.getDay() !== 0 && cut.getDay() !== 6) n++; }
+  const iso = `${cut.getFullYear()}-${String(cut.getMonth() + 1).padStart(2, '0')}-${String(cut.getDate()).padStart(2, '0')}`;
+  return d >= iso;
 }
+// STOXX-Liste zeigt nur Titel mit einem Signal (Pfeil oder MA20) der letzten 5 Handelstage
+const hasNewSignal = h => isNew(h.arrows?.at(-1)?.date, 'stoxx') || isNew(h.trades?.at(-1)?.entryDate, 'stoxx');
 const dateCell = (d, which) => isNew(d, which) ? `${dat(d)}<span class="new">neu</span>` : `<span class="old">${dat(d)}</span>`;
 const inWL = sym => watchlist.some(s => s.symbol === sym);
 
@@ -285,9 +290,10 @@ function render(which) {
       b.querySelector('.count').textContent = d.results.filter(FILTERS[b.dataset.f]).length;
     });
     rows = d.results.filter(FILTERS[stoxxFilter]);
-    meta = date ? `Letzter Scan ${date} · ${d.found} Treffer von ${d.total} · automatisch Di + Fr 20:00`
+    const recent = d.results.filter(hasNewSignal).length;
+    meta = date ? `Letzter Scan ${date} · ${recent} Treffer der letzten 5 Handelstage von ${d.total} · automatisch Di + Fr 20:00`
                 : 'Noch kein Scan · automatisch Di + Fr 20:00';
-    $('cnt-stoxx').textContent = d.results.length || '';
+    $('cnt-stoxx').textContent = recent || '';
   } else {
     // Alle Watchlist-Titel zeigen; Scan-Ergebnis (falls vorhanden) dazumischen.
     const bySym  = new Map(d.results.map(r => [r.symbol, r]));
@@ -452,7 +458,7 @@ async function postAdd(entry) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(entry),
   });
-  if (r.ok) { await loadWatchlist(); render('stoxx'); render('wl'); }
+  if (r.ok) { await loadWatchlist(); await loadResults('wl'); render('stoxx'); }
   return r.ok;
 }
 

@@ -6,12 +6,13 @@
 //  Spalten: Kürzel · Name · Währung · Datum des Minimums ·
 //           Tiefstkurs · Einstand · Abw. % (Tiefstkurs ggü. Einstand)
 //  Druckfertig (A4 hochkant).
-//  Aufruf:  node rot-bericht.js   oder   GET /rot-bericht
-//  Automatisch: Mo–Fr 23:30 (server.js)
+//  NUR automatisch: Mo–Fr 23:30 (server.js); GET /rot-bericht zeigt
+//  nur den letzten automatisch erzeugten Bericht.
 // ─────────────────────────────────────────────────────────────
 const fs   = require("fs");
 const path = require("path");
 const { calcStats } = require("./verfolgung");
+const { abrufVermerk, ABRUF_CSS } = require("./abruf-vermerk");
 
 const DATA_DIR   = path.join(__dirname, "data");
 const PUBLIC_DIR = path.join(__dirname, "public");
@@ -120,7 +121,7 @@ function sectionHTML(s) {
 </section>`;
 }
 
-function buildHTML(today) {
+function buildHTML(today, abruf) {
   const { sections, firstDate, lastDate } = collect();
   const range = firstDate ? `${fmtShort(firstDate)} – ${fmtShort(lastDate)}` : "–";
   const todayLbl = firstDate ? ` (${fmtShort(firstDate)})` : "";
@@ -193,7 +194,7 @@ function buildHTML(today) {
     tbody tr:hover{background:inherit}
     footer{margin-top:18px;font-size:9px}
   }
-</style>
+${ABRUF_CSS}</style>
 </head>
 <body>
 
@@ -201,6 +202,7 @@ function buildHTML(today) {
 
 <header>
   <h1>Verfolgung — Rote Kursfelder in den ersten ${WINDOW} Handelstagen</h1>
+  ${abrufVermerk(abruf)}
   <p>Stand: ${fmtDate(today)} &nbsp;·&nbsp; Zeigt alle Positionen, bei denen das 20-Tage-Minimum des Schlusskurses in den <strong>ersten ${WINDOW} Datumsspalten</strong> (${range}) liegt (= das rote Feld in der Preisreihe). Abw. % = Tiefstkurs gegenüber Einstand.</p>
   <div class="legend">
     <div class="legend-item"><div class="swatch swatch-today"></div> Minimum am letzten Kurstag${todayLbl}</div>
@@ -218,10 +220,11 @@ ${sections.map(sectionHTML).join("\n\n")}
 </html>`;
 }
 
-function generateRedReport(dateStr) {
+// abruf: "automatisch" (Zeitplan Mo–Fr 23:30) | "individuell"
+function generateRedReport(dateStr, abruf = "individuell") {
   const today = dateStr || localISO();
   const name  = `rot_bericht_${today}.html`;
-  fs.writeFileSync(path.join(PUBLIC_DIR, name), buildHTML(today));
+  fs.writeFileSync(path.join(PUBLIC_DIR, name), buildHTML(today, abruf));
   console.log(`[Rot-Bericht] erzeugt: ${name}`);
   return { file: name, path: path.join(PUBLIC_DIR, name) };
 }

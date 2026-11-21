@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grün-Bericht 21.11.2026</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:#eef1f5;color:#1a1a2e;font-family:'Trebuchet MS',sans-serif;padding:24px 20px 40px}
+  h1{font-size:16px;font-weight:700;margin-bottom:4px}
+  h2{font-size:14px;font-weight:700;margin-bottom:2px}
+  .cnt{font-size:11px;font-weight:600;color:#fff;background:#1e7a3c;border-radius:9px;padding:1px 7px;vertical-align:2px}
+  .sub{font-size:11px;color:#5a6a7e;margin-bottom:14px}
+  .sub2{font-size:11px;color:#5a6a7e;margin-bottom:8px}
+  .block{margin-bottom:28px}
+  .cols{display:grid;grid-template-columns:repeat(2,minmax(0,max-content));gap:24px;align-items:start}
+  .col{min-width:0}
+  .col .td-name{max-width:220px;overflow:hidden;text-overflow:ellipsis}
+  .col td,.col th{padding-left:9px;padding-right:9px}
+  @media (max-width:900px){.cols{grid-template-columns:minmax(0,1fr)}}
+  table{border-collapse:collapse;background:#fff;font-size:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);border-radius:6px;overflow:hidden}
+  th{background:#f0f4f8;color:#5a6a7e;font-size:10px;font-weight:600;text-align:left;padding:6px 12px;border-bottom:1px solid #d0d7e2}
+  td{padding:5px 12px;border-bottom:1px solid #eef1f5;white-space:nowrap}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:#f7f9fc}
+  .td-tbl,.td-name{color:#3a4a5e}
+  .cur{color:#8a9ab0;font-size:10px}
+  .td-date{color:#5a6a7e;font-variant-numeric:tabular-nums}
+  .td-sym{font-weight:700;font-size:11px}
+  .td-sym.g{color:#1e7a3c}
+  .td-price,.th-price,.td-num,.th-num{text-align:right;font-variant-numeric:tabular-nums}
+  .td-price{background:#d6f0e0}
+  .td-src{font-size:11px;color:#5a6a7e}
+  .td-tr,.th-tr{text-align:right;font-variant-numeric:tabular-nums}
+  .td-tr.up{color:#1e7a3c;font-weight:600}
+  .td-tr.dn{color:#c0392b}
+  .td-tr.na{color:#b0bccb}
+  .empty{background:#fff;padding:14px;border-radius:6px;font-size:12px;color:#8a9ab0}
+  .print-btn{float:right;background:#fff;border:1px solid #1a56cc;color:#1a56cc;padding:4px 11px;border-radius:4px;cursor:pointer;font:600 12px 'Trebuchet MS',sans-serif}
+  .print-btn:hover{background:#e8f0fd}
+  @media print{
+    .print-btn{display:none}
+    body{background:#fff;padding:0}
+    table{box-shadow:none}
+    .td-price,.cnt{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+
+  .abruf-vermerk{margin:4px 0 10px;font:600 12px 'Trebuchet MS',sans-serif;color:#5a6a7e}
+  .abruf{display:inline-block;padding:1px 9px;border-radius:999px;font-weight:700;margin-right:4px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .abruf-auto{background:#e8f0fe;color:#1a4fb8;border:1px solid #b8cdf5}
+  .abruf-indiv{background:#fdf3e3;color:#9a5b00;border:1px solid #f0d4a3}
+</style>
+</head>
+<body>
+  <button class="print-btn" onclick="window.print()">Drucken</button>
+  <h1>Grün-Bericht — Verfolgung + Rebound</h1>
+  <div class="abruf-vermerk"><span class="abruf abruf-indiv">Individuell</span> 21.11.2026 18:27</div>
+  <div class="sub">Stand: 21.11.2026 · letzter Kurstag 20.11.2026 · 117 Werte ausgewertet · Trend = Veränderung Schlusskurs gegenüber vor 5 bzw. 10 Handelstagen</div>
+
+  <section class="block">
+    <h2>Grüne Preisfelder — letzter und vorletzter Tag <span class="cnt">5</span></h2>
+    <div class="sub2">grün = höchster Schlusskurs der 20-Tage-Zeitreihe</div>
+    <table>
+        <thead><tr><th>Quelle</th><th>Tabelle</th><th>Datum</th><th>Kürzel</th><th>Name</th><th class="th-price">Preis</th><th class="th-tr">Trend 5 T</th><th class="th-tr">Trend 10 T</th></tr></thead>
+        <tbody><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Bestand2</td>
+      <td class="td-date">20.11.2026</td>
+      <td class="td-sym">FLXI.L</td>
+      <td class="td-name">Franklin FTSE India UCITS ETF</td>
+      <td class="td-price">43,955 <span class="cur">USD</span></td>
+      <td class="td-tr up">▲ +3,0 %</td>
+      <td class="td-tr up">▲ +3,2 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">EMA Filter</td>
+      <td class="td-date">19.11.2026</td>
+      <td class="td-sym">AVIO.MI</td>
+      <td class="td-name">Avio S.p.A.</td>
+      <td class="td-price">39,60 <span class="cur">EUR</span></td>
+      <td class="td-tr up">▲ +18,3 %</td>
+      <td class="td-tr up">▲ +34,9 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">EMA Filter</td>
+      <td class="td-date">19.11.2026</td>
+      <td class="td-sym">PDD</td>
+      <td class="td-name">PDD Holdings Inc.</td>
+      <td class="td-price">86,00 <span class="cur">USD</span></td>
+      <td class="td-tr up">▲ +6,0 %</td>
+      <td class="td-tr up">▲ +0,8 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Kaufkandidaten</td>
+      <td class="td-date">19.11.2026</td>
+      <td class="td-sym">YPSN.SW</td>
+      <td class="td-name">Ypsomed Holding AG</td>
+      <td class="td-price">440,60 <span class="cur">CHF</span></td>
+      <td class="td-tr up">▲ +0,9 %</td>
+      <td class="td-tr up">▲ +10,1 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Top</td>
+      <td class="td-date">19.11.2026</td>
+      <td class="td-sym">ANT</td>
+      <td class="td-name">Anthropic, PBC</td>
+      <td class="td-price">97,17 <span class="cur">USD</span></td>
+      <td class="td-tr na">–</td>
+      <td class="td-tr na">–</td>
+    </tr></tbody>
+      </table>
+  </section>
+
+  <div class="cols">
+    <section class="col">
+    <h2>Trend 5 Tage positiv <span class="cnt">9</span></h2>
+    <div class="sub2">Schlusskurs heute höher als vor 5 Handelstagen · absteigend sortiert</div>
+    <table>
+        <thead><tr><th>Quelle</th><th>Tabelle</th><th>Kürzel</th><th>Name</th><th class="th-num">Kurs</th><th class="th-tr">Trend 5 T</th></tr></thead>
+        <tbody><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">EMA Filter</td>
+      <td class="td-sym g">AVIO.MI</td>
+      <td class="td-name" title="Avio S.p.A.">Avio S.p.A.</td>
+      <td class="td-num">39,00 <span class="cur">EUR</span></td>
+      <td class="td-tr up">▲ +18,3 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Top</td>
+      <td class="td-sym">PANW</td>
+      <td class="td-name" title="Palo Alto Networks, Inc.">Palo Alto Networks, Inc.</td>
+      <td class="td-num">343,32 <span class="cur">USD</span></td>
+      <td class="td-tr up">▲ +6,5 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">EMA Filter</td>
+      <td class="td-sym g">PDD</td>
+      <td class="td-name" title="PDD Holdings Inc.">PDD Holdings Inc.</td>
+      <td class="td-num">83,68 <span class="cur">USD</span></td>
+      <td class="td-tr up">▲ +6,0 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Kaufkandidaten</td>
+      <td class="td-sym">URGN</td>
+      <td class="td-name" title="UroGen Pharma Ltd.">UroGen Pharma Ltd.</td>
+      <td class="td-num">27,65 <span class="cur">USD</span></td>
+      <td class="td-tr up">▲ +5,6 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Kaufkandidaten</td>
+      <td class="td-sym">IRTC</td>
+      <td class="td-name" title="iRhythm Holdings, Inc.">iRhythm Holdings, Inc.</td>
+      <td class="td-num">94,72 <span class="cur">USD</span></td>
+      <td class="td-tr up">▲ +3,1 %</td>
+    </tr><tr>
+      <td class="td-src">Rebound</td>
+      <td class="td-tbl">Rebound</td>
+      <td class="td-sym">IRTC</td>
+      <td class="td-name" title="iRhythm Holdings, Inc.">iRhythm Holdings, Inc.</td>
+      <td class="td-num">94,72 <span class="cur">USD</span></td>
+      <td class="td-tr up">▲ +3,1 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Bestand2</td>
+      <td class="td-sym g">FLXI.L</td>
+      <td class="td-name" title="Franklin FTSE India UCITS ETF">Franklin FTSE India UCITS ETF</td>
+      <td class="td-num">43,955 <span class="cur">USD</span></td>
+      <td class="td-tr up">▲ +3,0 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Top</td>
+      <td class="td-sym">CRWD</td>
+      <td class="td-name" title="CrowdStrike Holdings, Inc.">CrowdStrike Holdings, Inc.</td>
+      <td class="td-num">229,44 <span class="cur">USD</span></td>
+      <td class="td-tr up">▲ +1,2 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Kaufkandidaten</td>
+      <td class="td-sym g">YPSN.SW</td>
+      <td class="td-name" title="Ypsomed Holding AG">Ypsomed Holding AG</td>
+      <td class="td-num">434,40 <span class="cur">CHF</span></td>
+      <td class="td-tr up">▲ +0,9 %</td>
+    </tr></tbody>
+      </table>
+  </section>
+    <section class="col">
+    <h2>Trend 10 Tage positiv <span class="cnt">20</span></h2>
+    <div class="sub2">Schlusskurs heute höher als vor 10 Handelstagen · absteigend sortiert</div>
+    <table>
+        <thead><tr><th>Quelle</th><th>Tabelle</th><th>Kürzel</th><th>Name</th><th class="th-num">Kurs</th><th class="th-tr">Trend 10 T</th></tr></thead>
+        <tbody><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">EMA Filter</td>
+      <td class="td-sym g">AVIO.MI</td>
+      <td class="td-name" title="Avio S.p.A.">Avio S.p.A.</td>
+      <td class="td-num">39,00 <span class="cur">EUR</span></td>
+      <td class="td-tr up">▲ +34,9 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Kaufkandidaten</td>
+      <td class="td-sym">URGN</td>
+      <td class="td-name" title="UroGen Pharma Ltd.">UroGen Pharma Ltd.</td>
+      <td class="td-num">27,65 <span class="cur">USD</span></td>
+      <td class="td-tr up">▲ +11,7 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Kaufkandidaten</td>
+      <td class="td-sym g">YPSN.SW</td>
+      <td class="td-name" title="Ypsomed Holding AG">Ypsomed Holding AG</td>
+      <td class="td-num">434,40 <span class="cur">CHF</span></td>
+      <td class="td-tr up">▲ +10,1 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Top</td>
+      <td class="td-sym">PANW</td>
+      <td class="td-name" title="Palo Alto Networks, Inc.">Palo Alto Networks, Inc.</td>
+      <td class="td-num">343,32 <span class="cur">USD</span></td>
+      <td class="td-tr up">▲ +9,4 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Top</td>
+      <td class="td-sym">CRWD</td>
+      <td class="td-name" title="CrowdStrike Holdings, Inc.">CrowdStrike Holdings, Inc.</td>
+      <td class="td-num">229,44 <span class="cur">USD</span></td>
+      <td class="td-tr up">▲ +5,8 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Kaufkandidaten</td>
+      <td class="td-sym">IRTC</td>
+      <td class="td-name" title="iRhythm Holdings, Inc.">iRhythm Holdings, Inc.</td>
+      <td class="td-num">94,72 <span class="cur">USD</span></td>
+      <td class="td-tr up">▲ +5,0 %</td>
+    </tr><tr>
+      <td class="td-src">Rebound</td>
+      <td class="td-tbl">Rebound</td>
+      <td class="td-sym">IRTC</td>
+      <td class="td-name" title="iRhythm Holdings, Inc.">iRhythm Holdings, Inc.</td>
+      <td class="td-num">94,72 <span class="cur">USD</span></td>
+      <td class="td-tr up">▲ +5,0 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">The Market</td>
+      <td class="td-sym">FTNT</td>
+      <td class="td-name" title="Fortinet, Inc.">Fortinet, Inc.</td>
+      <td class="td-num">124,56 <span class="cur">USD</span></td>
+      <td class="td-tr up">▲ +4,8 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Top</td>
+      <td class="td-sym">FTNT</td>
+      <td class="td-name" title="Fortinet, Inc.">Fortinet, Inc.</td>
+      <td class="td-num">124,56 <span class="cur">USD</span></td>
+      <td class="td-tr up">▲ +4,8 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Top</td>
+      <td class="td-sym">AVGO</td>
+      <td class="td-name" title="Broadcom Inc.">Broadcom Inc.</td>
+      <td class="td-num">304,41 <span class="cur">USD</span></td>
+      <td class="td-tr up">▲ +3,7 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Bestand2</td>
+      <td class="td-sym g">FLXI.L</td>
+      <td class="td-name" title="Franklin FTSE India UCITS ETF">Franklin FTSE India UCITS ETF</td>
+      <td class="td-num">43,955 <span class="cur">USD</span></td>
+      <td class="td-tr up">▲ +3,2 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Kaufkandidaten</td>
+      <td class="td-sym">NET</td>
+      <td class="td-name" title="Cloudflare, Inc.">Cloudflare, Inc.</td>
+      <td class="td-num">274,96 <span class="cur">USD</span></td>
+      <td class="td-tr up">▲ +2,3 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Kaufkandidaten</td>
+      <td class="td-sym">UCG.MI</td>
+      <td class="td-name" title="UniCredit S.p.A.">UniCredit S.p.A.</td>
+      <td class="td-num">78,28 <span class="cur">EUR</span></td>
+      <td class="td-tr up">▲ +1,9 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Bestand2</td>
+      <td class="td-sym">MUV2.DE</td>
+      <td class="td-name" title="Münchener Rückversicherungs-Gesellschaft Aktiengesellschaft in München">Münchener Rückversicherungs-Gesellschaft Aktiengesellschaft in München</td>
+      <td class="td-num">580,00 <span class="cur">EUR</span></td>
+      <td class="td-tr up">▲ +1,9 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Bestand 3</td>
+      <td class="td-sym">MUV2.DE</td>
+      <td class="td-name" title="Münchener Rückversicherungs-Gesellschaft Aktiengesellschaft in München">Münchener Rückversicherungs-Gesellschaft Aktiengesellschaft in München</td>
+      <td class="td-num">580,00 <span class="cur">EUR</span></td>
+      <td class="td-tr up">▲ +1,9 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Kaufkandidaten</td>
+      <td class="td-sym">CROX</td>
+      <td class="td-name" title="Crocs, Inc.">Crocs, Inc.</td>
+      <td class="td-num">154,67 <span class="cur">USD</span></td>
+      <td class="td-tr up">▲ +1,9 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Kaufkandidaten</td>
+      <td class="td-sym">BCHN.SW</td>
+      <td class="td-name" title="Burckhardt Compression Holding AG">Burckhardt Compression Holding AG</td>
+      <td class="td-num">504,00 <span class="cur">CHF</span></td>
+      <td class="td-tr up">▲ +1,2 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Kaufkandidaten</td>
+      <td class="td-sym">MCK</td>
+      <td class="td-name" title="McKesson Corporation">McKesson Corporation</td>
+      <td class="td-num">1.069,4301 <span class="cur">USD</span></td>
+      <td class="td-tr up">▲ +0,8 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">EMA Filter</td>
+      <td class="td-sym g">PDD</td>
+      <td class="td-name" title="PDD Holdings Inc.">PDD Holdings Inc.</td>
+      <td class="td-num">83,68 <span class="cur">USD</span></td>
+      <td class="td-tr up">▲ +0,8 %</td>
+    </tr><tr>
+      <td class="td-src">Verfolgung</td>
+      <td class="td-tbl">Top</td>
+      <td class="td-sym">AAPL</td>
+      <td class="td-name" title="Apple Inc.">Apple Inc.</td>
+      <td class="td-num">342,56 <span class="cur">USD</span></td>
+      <td class="td-tr up">▲ +0,1 %</td>
+    </tr></tbody>
+      </table>
+  </section>
+  </div>
+</body>
+</html>

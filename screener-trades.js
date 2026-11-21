@@ -171,6 +171,43 @@ function detectArrows(candles, period = ARROW_PERIOD) {
   return arrows;
 }
 
+// Kurse laden und Trades/Pfeile eines Titels ermitteln (null = kein Treffer / keine Daten)
+async function analyzeSymbol(s, opts = {}) {
+  const candles = await fetchCandles(s.symbol);
+  if (!candles) return null;
+
+  const allTrades = detectTrades(candles);
+  const allArrows = detectArrows(candles);
+
+  // Neues Signal = MA20-Signal oder Pfeil in den letzten 5 Handelstagen (≈ 8 Kalendertage)
+  const recentCutoff = new Date();
+  recentCutoff.setDate(recentCutoff.getDate() - 8);
+  const recentStr = recentCutoff.toISOString().slice(0, 10);
+  const recentTrade = allTrades.some(t => t.entryDate >= recentStr);
+  const recentArrow = allArrows.length > 0 && allArrows[allArrows.length - 1].date >= recentStr;
+
+  // STOXX: nur Titel mit neuem Signal. Watchlist (includeAll): jeden Titel mit seinem Stand.
+  if (!opts.includeAll && !recentTrade && !recentArrow) return null;
+
+  // Anzeige: Trades und Pfeile des letzten Jahres
+  const yearCutoff = new Date();
+  yearCutoff.setFullYear(yearCutoff.getFullYear() - 1);
+  const yearStr = yearCutoff.toISOString().slice(0, 10);
+  const lastClose = candles[candles.length - 1].close;
+
+  return {
+    symbol: s.symbol,
+    name:   s.name,
+    index:  s.index || "",
+    close:  +lastClose.toFixed(4),
+    recentTrade,
+    recentArrow,
+    trades: allTrades.filter(t => t.entryDate >= yearStr),
+    // mindestens der letzte Pfeil, damit der aktuelle Stand immer sichtbar ist
+    arrows: allArrows.filter((a, k) => a.date >= yearStr || k === allArrows.length - 1),
+  };
+}
+
 async function runScreener(symbols, outputFile, opts = {}) {
   const list = opts.testMode
     ? [...symbols].sort(() => Math.random() - 0.5).slice(0, 20)
@@ -183,39 +220,8 @@ async function runScreener(symbols, outputFile, opts = {}) {
     const s = list[i];
     if (i > 0 && i % 50 === 0) console.log(`  ${i}/${list.length}`);
 
-    const candles = await fetchCandles(s.symbol);
-    if (!candles) continue;
-
-    const allTrades = detectTrades(candles);
-    const allArrows = detectArrows(candles);
-
-    // Neues Signal = MA20-Signal oder Pfeil in den letzten 5 Handelstagen (≈ 8 Kalendertage)
-    const recentCutoff = new Date();
-    recentCutoff.setDate(recentCutoff.getDate() - 8);
-    const recentStr = recentCutoff.toISOString().slice(0, 10);
-    const recentTrade = allTrades.some(t => t.entryDate >= recentStr);
-    const recentArrow = allArrows.length > 0 && allArrows[allArrows.length - 1].date >= recentStr;
-
-    // STOXX: nur Titel mit neuem Signal. Watchlist (includeAll): jeden Titel mit seinem Stand.
-    if (!opts.includeAll && !recentTrade && !recentArrow) continue;
-
-    // Anzeige: Trades und Pfeile des letzten Jahres
-    const yearCutoff = new Date();
-    yearCutoff.setFullYear(yearCutoff.getFullYear() - 1);
-    const yearStr = yearCutoff.toISOString().slice(0, 10);
-    const lastClose = candles[candles.length - 1].close;
-
-    results.push({
-      symbol: s.symbol,
-      name:   s.name,
-      index:  s.index || "",
-      close:  +lastClose.toFixed(4),
-      recentTrade,
-      recentArrow,
-      trades: allTrades.filter(t => t.entryDate >= yearStr),
-      // mindestens der letzte Pfeil, damit der aktuelle Stand immer sichtbar ist
-      arrows: allArrows.filter((a, k) => a.date >= yearStr || k === allArrows.length - 1),
-    });
+    const res = await analyzeSymbol(s, opts);
+    if (res) results.push(res);
 
     await new Promise(r => setTimeout(r, 80));
   }
@@ -234,4 +240,4 @@ async function runScreener(symbols, outputFile, opts = {}) {
   return out;
 }
 
-module.exports = { fetchCandles, detectTrades, detectArrows, runScreener };
+module.exports = { fetchCandles, detectTrades, detectArrows, analyzeSymbol, runScreener };
